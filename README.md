@@ -32,6 +32,40 @@ arbitrage) appartient à Arnaud.
 
 ---
 
+## Prévisualiser en local
+
+> ⚠️ **N'ouvrez PAS `dist/index.html` par double-clic.** La page s'affichera **vide** (aucun
+> résultat, les sliders ne renvoient rien) — ce n'est **pas** un bug du site.
+
+Un site statique moderne **doit être SERVI par HTTP**, pas ouvert en `file://`. Deux raisons, et
+**les deux sont normales et correctes pour un vrai déploiement** (Vercel, Cloudflare Pages…) :
+
+1. **Chemins d'actifs absolus** : le HTML bâti charge son JavaScript via `src="/_astro/…"`. En
+   `file://`, le `/` initial pointe vers la **racine du disque** (`file:///_astro/…`) → le fichier
+   n'est pas trouvé, **le JS ne se charge jamais**, donc rien n'est rendu.
+2. **Modules ES bloqués par CORS sous `file://`** : le script est un `<script type="module">` ;
+   tous les navigateurs modernes refusent de charger un module depuis `file://`. À lui seul, ça
+   suffit à produire une page vide.
+
+Servi en HTTP, `/_astro/…` se résout et les modules se chargent → tout fonctionne.
+
+**Commandes qui marchent** (l'une ou l'autre) :
+
+```bash
+# 1) Natif Astro — build puis serveur de prévisualisation HTTP
+npm run build && npm run preview      # ouvre l'URL http://localhost:4321 affichée
+
+# 2) N'importe quel serveur statique sur le dossier bâti
+npm run build
+python3 -m http.server 8000 --directory dist
+# puis ouvrir http://localhost:8000  (PAS le fichier en double-clic)
+```
+
+Vérifié : servi en HTTP, la vue par défaut affiche les 57 combinaisons **vérifiées** (0 non
+vérifiée), et les 3 sliders L/P/H filtrent bien.
+
+---
+
 ## Ce que fait le site (critères d'acceptation)
 
 | # | Critère | Où |
