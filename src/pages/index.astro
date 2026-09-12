@@ -1,0 +1,225 @@
+---
+import { buildDataset } from '../lib/dataset';
+import type { CaissonProduct } from '../lib/types';
+import '../styles/global.css';
+
+const ds = buildDataset();
+// Un seul tableau exposé au client ; la règle « incertains masqués par défaut »
+// est appliquée au filtrage (filter.ts), pas en cachant les données.
+const produits: CaissonProduct[] = [...ds.confirmes, ...ds.incertains];
+
+const payload = {
+  produits,
+  bounds: ds.bounds,
+  facettes: {
+    gammes: ds.gammes,
+    types_meuble: ds.types_meuble,
+    pieces: ds.pieces,
+    montages: ds.montages,
+    materiaux: ds.materiaux,
+  },
+  compteurs: {
+    confirmes: ds.confirmes.length,
+    incertains: ds.incertains.length,
+    quarantaine: ds.quarantaine.length,
+  },
+};
+
+const b = ds.bounds;
+const nfmt = (v: number) => `${v}`;
+
+// Lien "signaler un problème" (doctrine : feedback via GitHub Issues). Dépôt privé →
+// URL non connue au build : laissée configurable, désactivée par défaut (ne pas inventer).
+const ISSUES_URL: string | null = null;
+---
+
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Comparateur de caissons par dimensions — MVP</title>
+    <meta
+      name="description"
+      content="Filtre de faisabilité : trouvez un caisson (meuble de rangement) qui tient dans vos contraintes de largeur, profondeur et hauteur. Données dimensionnelles indicatives, sans prix."
+    />
+    <meta property="og:title" content="Comparateur de caissons par dimensions" />
+    <meta
+      property="og:description"
+      content="Existe-t-il un caisson qui tient dans mes contraintes ? Filtrage par L × P × H, comparateur côte à côte."
+    />
+    <meta property="og:type" content="website" />
+    <meta name="robots" content="index,follow" />
+  </head>
+  <body>
+    <a class="skip-link" href="#resultats">Aller aux résultats</a>
+
+    <header class="site-header">
+      <div class="wrap">
+        <h1>Comparateur de caissons <span class="subtitle">par dimensions</span></h1>
+        <p class="tagline">
+          Un <strong>filtre de faisabilité</strong> : « existe-t-il un caisson qui tient dans mes
+          contraintes de largeur, profondeur et hauteur ? » — pas un catalogue.
+        </p>
+        <p class="counts">
+          <strong>{payload.compteurs.confirmes}</strong> combinaisons vérifiées
+          <span class="muted"> · {payload.compteurs.incertains} non vérifiées (masquées par défaut)</span>
+        </p>
+      </div>
+    </header>
+
+    <main class="wrap layout">
+      <!-- ================= FILTRES ================= -->
+      <form id="filtres" class="filtres" aria-label="Filtres" novalidate>
+        <div class="filtres-head">
+          <h2>Filtres</h2>
+          <button type="button" id="reset" class="btn-link">Réinitialiser</button>
+        </div>
+
+        <div class="field">
+          <label for="q">Recherche (nom, gamme)</label>
+          <input type="search" id="q" name="q" placeholder="ex. BILLY, PAX…" autocomplete="off" />
+        </div>
+
+        <!-- Dual sliders -->
+        <fieldset class="slider-group">
+          <legend>Largeur (cm)</legend>
+          <div class="dual" data-axis="l" data-min={nfmt(b.largeur_cm.min)} data-max={nfmt(b.largeur_cm.max)}>
+            <input type="range" id="lmin" aria-label="Largeur minimale (cm)" min={nfmt(b.largeur_cm.min)} max={nfmt(b.largeur_cm.max)} value={nfmt(b.largeur_cm.min)} step="1" />
+            <input type="range" id="lmax" aria-label="Largeur maximale (cm)" min={nfmt(b.largeur_cm.min)} max={nfmt(b.largeur_cm.max)} value={nfmt(b.largeur_cm.max)} step="1" />
+            <output class="readout" id="lout" aria-live="polite">{b.largeur_cm.min}–{b.largeur_cm.max}</output>
+          </div>
+        </fieldset>
+
+        <fieldset class="slider-group">
+          <legend>Profondeur (cm)</legend>
+          <div class="dual" data-axis="p" data-min={nfmt(b.profondeur_cm.min)} data-max={nfmt(b.profondeur_cm.max)}>
+            <input type="range" id="pmin" aria-label="Profondeur minimale (cm)" min={nfmt(b.profondeur_cm.min)} max={nfmt(b.profondeur_cm.max)} value={nfmt(b.profondeur_cm.min)} step="1" />
+            <input type="range" id="pmax" aria-label="Profondeur maximale (cm)" min={nfmt(b.profondeur_cm.min)} max={nfmt(b.profondeur_cm.max)} value={nfmt(b.profondeur_cm.max)} step="1" />
+            <output class="readout" id="pout" aria-live="polite">{b.profondeur_cm.min}–{b.profondeur_cm.max}</output>
+          </div>
+        </fieldset>
+
+        <fieldset class="slider-group">
+          <legend>Hauteur (cm)</legend>
+          <div class="dual" data-axis="h" data-min={nfmt(b.hauteur_cm.min)} data-max={nfmt(b.hauteur_cm.max)}>
+            <input type="range" id="hmin" aria-label="Hauteur minimale (cm)" min={nfmt(b.hauteur_cm.min)} max={nfmt(b.hauteur_cm.max)} value={nfmt(b.hauteur_cm.min)} step="1" />
+            <input type="range" id="hmax" aria-label="Hauteur maximale (cm)" min={nfmt(b.hauteur_cm.min)} max={nfmt(b.hauteur_cm.max)} value={nfmt(b.hauteur_cm.max)} step="1" />
+            <output class="readout" id="hout" aria-live="polite">{b.hauteur_cm.min}–{b.hauteur_cm.max}</output>
+          </div>
+        </fieldset>
+
+        <!-- Facettes -->
+        {[
+          { id: 'gammes', label: 'Gamme', values: payload.facettes.gammes },
+          { id: 'types', label: 'Type de meuble', values: payload.facettes.types_meuble },
+          { id: 'pieces', label: 'Pièce', values: payload.facettes.pieces },
+          { id: 'montages', label: 'Montage', values: payload.facettes.montages },
+          { id: 'materiaux', label: 'Matériau', values: payload.facettes.materiaux },
+        ].map((facet) => (
+          <details class="facet" open={facet.id === 'gammes'}>
+            <summary>{facet.label}</summary>
+            <fieldset aria-label={facet.label} data-facet={facet.id}>
+              {facet.values.map((v: string) => (
+                <label class="check">
+                  <input type="checkbox" name={facet.id} value={v} />
+                  <span>{v}</span>
+                </label>
+              ))}
+            </fieldset>
+          </details>
+        ))}
+
+        <div class="field toggle">
+          <label class="check">
+            <input type="checkbox" id="inc" />
+            <span>Inclure les combinaisons <strong>non vérifiées</strong></span>
+          </label>
+          <p class="hint">Elles portent un badge « non vérifié » et ne doivent pas être tenues pour certaines.</p>
+        </div>
+      </form>
+
+      <!-- ================= RÉSULTATS ================= -->
+      <section id="resultats" class="resultats" aria-label="Résultats">
+        <div class="toolbar">
+          <p class="compteur" id="compteur" aria-live="polite" role="status"></p>
+          <div class="toolbar-right">
+            <label for="sort" class="sr-hint">Trier par</label>
+            <select id="sort" aria-label="Trier par">
+              <option value="nom">Nom</option>
+              <option value="largeur_cm">Largeur</option>
+              <option value="profondeur_cm">Profondeur</option>
+              <option value="hauteur_cm">Hauteur</option>
+            </select>
+            <button type="button" id="dir" aria-label="Sens du tri" title="Sens du tri">↑</button>
+            <div class="view-toggle" role="group" aria-label="Affichage">
+              <button type="button" id="view-table" aria-pressed="true">Tableau</button>
+              <button type="button" id="view-cards" aria-pressed="false">Cartes</button>
+            </div>
+          </div>
+        </div>
+
+        <div id="chips" class="chips" aria-label="Filtres actifs"></div>
+
+        <!-- Le comparateur -->
+        <div id="comparateur-tray" class="tray" hidden aria-live="polite">
+          <span id="tray-count"></span>
+          <button type="button" id="open-compare" disabled>Comparer</button>
+          <button type="button" id="clear-compare" class="btn-link">Vider</button>
+        </div>
+
+        <div id="results" class="results-region"></div>
+
+        <noscript>
+          <p class="notice">
+            JavaScript est requis pour filtrer, trier et comparer. Voici la liste complète des
+            {payload.compteurs.confirmes} combinaisons vérifiées :
+          </p>
+          <table class="dense">
+            <thead>
+              <tr><th>Nom</th><th>Gamme</th><th>L</th><th>P</th><th>H</th><th>Montage</th></tr>
+            </thead>
+            <tbody>
+              {ds.confirmes.map((p) => (
+                <tr>
+                  <td>{p.nom_produit}</td><td>{p.gamme}</td>
+                  <td>{p.largeur_cm}</td><td>{p.profondeur_cm}</td><td>{p.hauteur_cm}</td>
+                  <td>{p.montage}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </noscript>
+      </section>
+    </main>
+
+    <!-- Modale comparateur -->
+    <dialog id="compare-dialog" aria-label="Comparateur côte à côte">
+      <div class="dialog-head">
+        <h2>Comparateur</h2>
+        <button type="button" id="close-compare" aria-label="Fermer">✕</button>
+      </div>
+      <div id="compare-body"></div>
+    </dialog>
+
+    <footer class="site-footer">
+      <div class="wrap">
+        <p class="legal">
+          Données <strong>dimensionnelles indicatives</strong>, établies à partir de sources
+          publiques, susceptibles d'erreurs — à vérifier auprès de l'enseigne. Les marques citées
+          (IKEA®…) le sont à titre <strong>descriptif</strong> ; ce comparateur n'est ni le vendeur
+          ni affilié à ces enseignes. Aucun prix, aucune image, aucune référence article.
+        </p>
+        <p class="feedback">
+          {ISSUES_URL ? (
+            <a href={ISSUES_URL} rel="noopener">Signaler un problème / Suggestion</a>
+          ) : (
+            <span class="muted">Signaler un problème : lien Issues à configurer (voir README).</span>
+          )}
+        </p>
+      </div>
+    </footer>
+
+    <script type="application/json" id="dataset-json" set:html={JSON.stringify(payload)} />
+    <script src="../scripts/app.ts"></script>
+  </body>
+</html>

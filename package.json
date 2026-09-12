@@ -1,0 +1,21 @@
+{
+  "name": "site-caissons",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Comparateur de meubles caisson par dimensions (MVP, cotes sans prix) — site statique Astro, filtrage 100% client.",
+  "scripts": {
+    "dev": "astro dev",
+    "build": "astro build",
+    "preview": "astro preview",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "astro": "^4.16.18"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.3",
+    "vitest": "^2.1.8"
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "_meta": {
+    "role": "Mappe le placeholder url_produit 'gamme:<GAMME>' vers l'URL PUBLIQUE de la page de gamme de l'enseigne. Une entrée par gamme.",
+    "regle": "NE PAS inventer d'URL. Valeur null = lien laissé DÉSACTIVÉ dans l'UI (choix assumé). Renseigner l'URL publique vérifiée pour activer le lien, sans moissonnage.",
+    "cle": "Format de clé : '<GAMME>' en majuscules, exactement comme le champ gamme du dataset (accents inclus, ex. 'BESTÅ')."
+  },
+  "urls": {
+    "METOD": null,
+    "BESTÅ": null,
+    "PAX": null,
+    "PLATSA": null,
+    "BILLY": null,
+    "IVAR": null,
+    "EKET": null,
+    "KALLAX": null
+  }
+}
