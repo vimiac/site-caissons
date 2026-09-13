@@ -1,6 +1,7 @@
 // Island client : filtrage/tri 100% navigateur sur le dataset embarqué, état dans l'URL,
 // vue tableau/cartes, comparateur 2-4 avec surlignage des écarts. Aucune requête réseau.
 import { filterProducts, sortProducts } from '../lib/filter';
+import { caissonSVG, computeSchemaScale } from '../lib/schema';
 import type {
   CaissonProduct,
   DimensionBounds,
@@ -25,6 +26,8 @@ if (!dataEl) throw new Error('dataset-json manquant');
 const PAYLOAD: Payload = JSON.parse(dataEl.textContent || '{}');
 const ALL = PAYLOAD.produits;
 const B = PAYLOAD.bounds;
+// Échelle partagée des schémas (px/cm), dérivée des bornes calculées : tous les caissons comparables.
+const SCALE = computeSchemaScale(B);
 
 const FACET_FIELDS: Array<keyof FilterCriteria> = ['gammes', 'types', 'pieces', 'montages', 'materiaux'];
 const FACET_NAME: Record<string, string> = {
@@ -216,6 +219,7 @@ function renderCards(list: CaissonProduct[]) {
     .map(
       (p) => `<article class="card ${p.certitude === 'incertain' ? 'row-incertain' : ''}">
         <header><h3>${escapeHtml(p.nom_produit)} ${badge(p)}</h3><label class="cmp-wrap">${cmpCheckbox(p)}<span class="sr-only">Comparer</span></label></header>
+        <figure class="schema-wrap">${caissonSVG(p, SCALE)}<figcaption class="sr-only">Schéma à l'échelle du caisson ${escapeHtml(p.nom_produit)}, ${p.largeur_cm}×${p.profondeur_cm}×${p.hauteur_cm} cm.</figcaption></figure>
         <dl class="cotes">
           <div><dt>L</dt><dd>${p.largeur_cm} cm</dd></div>
           <div><dt>P</dt><dd>${p.profondeur_cm} cm</dd></div>
@@ -323,6 +327,9 @@ function openCompare() {
     ['Certitude', (p) => (p.certitude === 'incertain' ? 'non vérifié' : 'vérifié')],
   ];
   const head = `<tr><th>Attribut</th>${items.map((p) => `<th>${escapeHtml(p.nom_produit)}</th>`).join('')}</tr>`;
+  const schemaRow = `<tr class="row-schema"><th scope="row">Schéma (même échelle)</th>${items
+    .map((p) => `<td class="c-schema">${caissonSVG(p, SCALE)}</td>`)
+    .join('')}</tr>`;
   const body = attrs
     .map(([label, fn]) => {
       const vals = items.map(fn);
@@ -334,7 +341,7 @@ function openCompare() {
     })
     .join('');
   $('#compare-body')!.innerHTML =
-    `<div class="table-scroll"><table class="compare"><thead>${head}</thead><tbody>${body}</tbody></table></div>
+    `<div class="table-scroll"><table class="compare"><thead>${head}</thead><tbody>${schemaRow}${body}</tbody></table></div>
      <p class="hint">Les lignes surlignées marquent un <strong>écart</strong> entre les produits comparés.</p>`;
   const dlg = $<HTMLDialogElement>('#compare-dialog')!;
   if (typeof dlg.showModal === 'function') dlg.showModal();
