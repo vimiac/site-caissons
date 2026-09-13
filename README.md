@@ -61,7 +61,7 @@ python3 -m http.server 8000 --directory dist
 # puis ouvrir http://localhost:8000  (PAS le fichier en double-clic)
 ```
 
-Vérifié : servi en HTTP, la vue par défaut affiche les 57 combinaisons **vérifiées** (0 non
+Vérifié : servi en HTTP, la vue par défaut affiche les 53 combinaisons **vérifiées** (0 non
 vérifiée), et les 3 sliders L/P/H filtrent bien.
 
 ---
@@ -81,10 +81,18 @@ vérifiée), et les 3 sliders L/P/H filtrent bien.
 | 9 | **Import sans code** (éditer le JSON) | voir ci-dessous |
 | 10 | **Tests unitaires** sur la normalisation/validation | `src/lib/__tests__/` |
 
+### Schéma par caisson (dessin généré, pas de photo)
+
+Chaque caisson est illustré par un **SVG inline généré à partir de ses cotes** (`src/lib/schema.ts`) :
+face avant **à l'échelle** (largeur × hauteur), profondeur suggérée, cotes lisibles. L'échelle est
+**partagée** (px/cm dérivés des bornes calculées) → deux caissons sont comparables à l'œil. C'est
+**notre dessin**, jamais une photo IKEA : aucun `<img>`, aucune URL, aucune requête réseau — les
+invariants du site tiennent. Visible en **vue cartes** et dans le **comparateur** (côte à côte).
+
 ### La règle qui commande l'affichage
 
-Le jeu de données contient **57 combinaisons vérifiées** et **32 non vérifiées**.
-**Rien d'incertain n'est affiché comme certain.** Par défaut, **seules les 57 vérifiées sont
+Le jeu de données contient **53 combinaisons vérifiées** et **24 non vérifiées**.
+**Rien d'incertain n'est affiché comme certain.** Par défaut, **seules les 53 vérifiées sont
 filtrables** ; les non vérifiées n'apparaissent qu'après avoir coché **« Inclure les combinaisons
 non vérifiées »**, et portent alors un **badge « non vérifié »**. Cette règle est appliquée dans le
 filtrage (`filter.ts`), pas en cachant les données — elle ne peut donc pas être contournée par un
@@ -152,7 +160,7 @@ est rebuild → redéployé). Deux cas :
 - Renseigner l'**URL publique vérifiée** de la page de gamme → le lien s'active
   (« Voir la gamme … ↗ », `rel="noopener nofollow"`).
 
-> **Choix assumé (MVP)** : les 8 URLs de pages de gamme sont livrées à `null` — elles ne sont
+> **Choix assumé (MVP)** : les 7 URLs de pages de gamme sont livrées à `null` — elles ne sont
 > **pas inventées** (consigne : une URL fabriquée de mémoire est un défaut). À compléter par Arnaud
 > avec les URLs publiques réelles, sans moissonnage.
 

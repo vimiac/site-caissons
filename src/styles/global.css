@@ -131,6 +131,21 @@ table.compare thead th { background: var(--panel); }
 table.compare .row-diff th[scope="row"] { background: var(--diff-bg); color: var(--diff-ink); }
 table.compare td.diff { background: var(--diff-bg); color: var(--diff-ink); font-weight: 600; }
 
+/* Schéma SVG (dessin à l'échelle, généré depuis les cotes — aucune image) */
+.schema-wrap { margin: 6px 0 8px; }
+.schema { display: block; width: 100%; height: auto; max-height: 150px; }
+.schema .s-face { fill: #dbe6ef; stroke: var(--accent); stroke-width: 1.6; }
+.schema .s-top { fill: #eef3f8; stroke: var(--accent); stroke-width: 1.2; }
+.schema .s-side { fill: #c7d6e4; stroke: var(--accent); stroke-width: 1.2; }
+.schema .s-dim { stroke: var(--muted); stroke-width: 1; }
+.schema .s-num { fill: var(--muted); font-size: 11px; font-variant-numeric: tabular-nums; }
+.row-incertain .schema .s-face { fill: var(--warn-bg); stroke: #b98900; }
+.row-incertain .schema .s-top, .row-incertain .schema .s-side { stroke: #b98900; }
+/* Comparateur : schémas côte à côte à la même échelle */
+table.compare td.c-schema { text-align: center; vertical-align: bottom; }
+table.compare td.c-schema .schema { max-height: 130px; margin: 0 auto; }
+table.compare tr.row-schema th[scope="row"] { background: var(--panel); }
+
 /* Footer */
 .site-footer { border-top: 1px solid var(--line); background: var(--panel); padding-block: 20px; margin-top: 24px; }
 .site-footer .legal { color: var(--muted); font-size: .85rem; max-width: 80ch; margin: 0 0 8px; }
