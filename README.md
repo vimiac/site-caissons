@@ -61,7 +61,7 @@ python3 -m http.server 8000 --directory dist
 # puis ouvrir http://localhost:8000  (PAS le fichier en double-clic)
 ```
 
-Vérifié : servi en HTTP, la vue par défaut affiche les 53 combinaisons **vérifiées** (0 non
+Vérifié : servi en HTTP, la vue par défaut affiche les 76 combinaisons **vérifiées** (0 non
 vérifiée), et les 3 sliders L/P/H filtrent bien.
 
 ---
@@ -91,8 +91,8 @@ invariants du site tiennent. Visible en **vue cartes** et dans le **comparateur*
 
 ### La règle qui commande l'affichage
 
-Le jeu de données contient **53 combinaisons vérifiées** et **24 non vérifiées**.
-**Rien d'incertain n'est affiché comme certain.** Par défaut, **seules les 53 vérifiées sont
+Le jeu de données contient **76 combinaisons vérifiées** (5 marques : IKEA, Castorama/Atomia, Muuto/Stacked, HAY/Colour Cabinet, Leroy Merlin/DELINIA) et **28 non vérifiées** (IKEA + HAY).
+**Rien d'incertain n'est affiché comme certain.** Par défaut, **seules les 76 vérifiées sont
 filtrables** ; les non vérifiées n'apparaissent qu'après avoir coché **« Inclure les combinaisons
 non vérifiées »**, et portent alors un **badge « non vérifié »**. Cette règle est appliquée dans le
 filtrage (`filter.ts`), pas en cachant les données — elle ne peut donc pas être contournée par un
@@ -180,8 +180,9 @@ Chaque résultat porte **un lien vers la marque**, résolu au build selon cette 
 
 - **Island vanilla TypeScript** (pas de Preact/React) : réduit les dépendances (proche du standard,
   moins à maintenir). La logique testable (normalisation, filtrage) est isolée dans `src/lib/`.
-- **Une seule enseigne câblée** (`ikea.json`) au MVP ; l'ajout d'une 2ᵉ enseigne est **documenté**
-  (format + point d'import) plutôt que démontré avec des données inventées.
+- **Plusieurs marques câblées** : `ikea.json` (53) + `marques-2026-09-14.json` (Castorama/Atomia 9 + Muuto/Stacked 3 + HAY/Colour Cabinet 2 + Leroy Merlin/DELINIA 9 vérifiées, + 4 HAY non vérifiées),
+  importées dans `dataset.ts`. Un **filtre « Marque »** (facette `enseignes`, 5 marques) permet de distinguer et filtrer par marque.
+  Cotes décimales/extrêmes réelles gérées (Atomia 37,5/187,5 ; Muuto 21,8/43,6/65,4 ; DELINIA 38,5 et 215) : bornes calculées sur les données (max hauteur = 215) et sliders au **pas de 0,1 cm**, aucun arrondi.
 - **Facettes en cases à cocher** (plutôt que `<select multiple>`) : meilleur au clavier et au doigt.
 - **`site` dans `astro.config.mjs`** = `https://caissons.vimiac.fr` (placeholder) — à ajuster au vrai
   domaine avant déploiement.

@@ -3,6 +3,7 @@
 // Exécuté dans le frontmatter Astro (build statique). Aucune donnée inventée.
 
 import rawIkea from '../data/ikea.json';
+import rawAutres from '../data/marques-2026-09-14.json'; // Castorama Atomia, Muuto Stacked, HAY Colour Cabinet, Leroy Merlin DELINIA
 import gammeUrls from '../data/gamme-urls.json';
 import marqueRecherche from '../data/marque-recherche.json';
 import { normalizeProduct, validateProduct, parseDimensionTriplet } from './dimensions';
@@ -61,9 +62,12 @@ function expandIncertains(
 
   for (const g of groups) {
     const model = byGamme.get(g.gamme);
+    // La marque et le préfixe d'id sont HÉRITÉS du modèle confirmé de la gamme (pas forcés à IKEA) :
+    // sinon les incertains d'une autre marque (ex. HAY) seraient étiquetés IKEA (filtre/lien faux).
+    const enseigne = model?.enseigne ?? 'IKEA';
     for (const combo of g.combinaisons) {
       const trip = parseDimensionTriplet(combo);
-      const id = `ikea-${g.gamme.toLowerCase()}-${combo.replace(/[^0-9]+/g, 'x').replace(/^x|x$/g, '')}-incertain`;
+      const id = `${enseigne.toLowerCase()}-${g.gamme.toLowerCase().replace(/\s+/g, '-')}-${combo.replace(/[^0-9]+/g, 'x').replace(/^x|x$/g, '')}-incertain`;
       if (!trip) {
         quarantaine.push({ id, raison: `combinaison incertaine illisible: "${combo}"`, champ: 'combinaisons' });
         continue;
@@ -72,7 +76,7 @@ function expandIncertains(
         toProduct(
           normalizeProduct({
             id,
-            enseigne: 'IKEA',
+            enseigne,
             gamme: g.gamme,
             nom_produit: `${g.gamme} ${combo}`,
             type_meuble: model?.type_meuble ?? 'autre',
@@ -121,7 +125,11 @@ export function buildDataset(): Dataset {
   const confirmes: CaissonProduct[] = [];
   const quarantaine: QuarantineEntry[] = [];
 
-  const rawProduits: any[] = (rawIkea as any).produits ?? [];
+  // Sources multi-marques : IKEA + les marques du lot (Castorama Atomia, Muuto Stacked).
+  const rawProduits: any[] = [
+    ...((rawIkea as any).produits ?? []),
+    ...((rawAutres as any).produits ?? []),
+  ];
   for (const raw of rawProduits) {
     const n = normalizeProduct(raw);
     const errors = validateProduct(n);
@@ -136,7 +144,10 @@ export function buildDataset(): Dataset {
     confirmes.push(p);
   }
 
-  const groups: IncertainGroup[] = (rawIkea as any).produits_incertains ?? [];
+  const groups: IncertainGroup[] = [
+    ...((rawIkea as any).produits_incertains ?? []),
+    ...((rawAutres as any).produits_incertains ?? []),
+  ];
   const expanded = expandIncertains(groups, confirmes);
   const incertains = expanded.produits;
   quarantaine.push(...expanded.quarantaine);

@@ -12,6 +12,7 @@ const payload = {
   produits,
   bounds: ds.bounds,
   facettes: {
+    enseignes: ds.enseignes,
     gammes: ds.gammes,
     types_meuble: ds.types_meuble,
     pieces: ds.pieces,
@@ -84,8 +85,8 @@ const ISSUES_URL: string | null = null;
         <fieldset class="slider-group">
           <legend>Largeur (cm)</legend>
           <div class="dual" data-axis="l" data-min={nfmt(b.largeur_cm.min)} data-max={nfmt(b.largeur_cm.max)}>
-            <input type="range" id="lmin" aria-label="Largeur minimale (cm)" min={nfmt(b.largeur_cm.min)} max={nfmt(b.largeur_cm.max)} value={nfmt(b.largeur_cm.min)} step="1" />
-            <input type="range" id="lmax" aria-label="Largeur maximale (cm)" min={nfmt(b.largeur_cm.min)} max={nfmt(b.largeur_cm.max)} value={nfmt(b.largeur_cm.max)} step="1" />
+            <input type="range" id="lmin" aria-label="Largeur minimale (cm)" min={nfmt(b.largeur_cm.min)} max={nfmt(b.largeur_cm.max)} value={nfmt(b.largeur_cm.min)} step="0.1" />
+            <input type="range" id="lmax" aria-label="Largeur maximale (cm)" min={nfmt(b.largeur_cm.min)} max={nfmt(b.largeur_cm.max)} value={nfmt(b.largeur_cm.max)} step="0.1" />
             <output class="readout" id="lout" aria-live="polite">{b.largeur_cm.min}–{b.largeur_cm.max}</output>
           </div>
         </fieldset>
@@ -93,8 +94,8 @@ const ISSUES_URL: string | null = null;
         <fieldset class="slider-group">
           <legend>Profondeur (cm)</legend>
           <div class="dual" data-axis="p" data-min={nfmt(b.profondeur_cm.min)} data-max={nfmt(b.profondeur_cm.max)}>
-            <input type="range" id="pmin" aria-label="Profondeur minimale (cm)" min={nfmt(b.profondeur_cm.min)} max={nfmt(b.profondeur_cm.max)} value={nfmt(b.profondeur_cm.min)} step="1" />
-            <input type="range" id="pmax" aria-label="Profondeur maximale (cm)" min={nfmt(b.profondeur_cm.min)} max={nfmt(b.profondeur_cm.max)} value={nfmt(b.profondeur_cm.max)} step="1" />
+            <input type="range" id="pmin" aria-label="Profondeur minimale (cm)" min={nfmt(b.profondeur_cm.min)} max={nfmt(b.profondeur_cm.max)} value={nfmt(b.profondeur_cm.min)} step="0.1" />
+            <input type="range" id="pmax" aria-label="Profondeur maximale (cm)" min={nfmt(b.profondeur_cm.min)} max={nfmt(b.profondeur_cm.max)} value={nfmt(b.profondeur_cm.max)} step="0.1" />
             <output class="readout" id="pout" aria-live="polite">{b.profondeur_cm.min}–{b.profondeur_cm.max}</output>
           </div>
         </fieldset>
@@ -102,21 +103,22 @@ const ISSUES_URL: string | null = null;
         <fieldset class="slider-group">
           <legend>Hauteur (cm)</legend>
           <div class="dual" data-axis="h" data-min={nfmt(b.hauteur_cm.min)} data-max={nfmt(b.hauteur_cm.max)}>
-            <input type="range" id="hmin" aria-label="Hauteur minimale (cm)" min={nfmt(b.hauteur_cm.min)} max={nfmt(b.hauteur_cm.max)} value={nfmt(b.hauteur_cm.min)} step="1" />
-            <input type="range" id="hmax" aria-label="Hauteur maximale (cm)" min={nfmt(b.hauteur_cm.min)} max={nfmt(b.hauteur_cm.max)} value={nfmt(b.hauteur_cm.max)} step="1" />
+            <input type="range" id="hmin" aria-label="Hauteur minimale (cm)" min={nfmt(b.hauteur_cm.min)} max={nfmt(b.hauteur_cm.max)} value={nfmt(b.hauteur_cm.min)} step="0.1" />
+            <input type="range" id="hmax" aria-label="Hauteur maximale (cm)" min={nfmt(b.hauteur_cm.min)} max={nfmt(b.hauteur_cm.max)} value={nfmt(b.hauteur_cm.max)} step="0.1" />
             <output class="readout" id="hout" aria-live="polite">{b.hauteur_cm.min}–{b.hauteur_cm.max}</output>
           </div>
         </fieldset>
 
         <!-- Facettes -->
         {[
+          { id: 'enseignes', label: 'Marque', values: payload.facettes.enseignes },
           { id: 'gammes', label: 'Gamme', values: payload.facettes.gammes },
           { id: 'types', label: 'Type de meuble', values: payload.facettes.types_meuble },
           { id: 'pieces', label: 'Pièce', values: payload.facettes.pieces },
           { id: 'montages', label: 'Montage', values: payload.facettes.montages },
           { id: 'materiaux', label: 'Matériau', values: payload.facettes.materiaux },
         ].map((facet) => (
-          <details class="facet" open={facet.id === 'gammes'}>
+          <details class="facet" open={facet.id === 'enseignes'}>
             <summary>{facet.label}</summary>
             <fieldset aria-label={facet.label} data-facet={facet.id}>
               {facet.values.map((v: string) => (

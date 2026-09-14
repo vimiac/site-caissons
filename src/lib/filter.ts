@@ -27,6 +27,7 @@ export function filterProducts(products: CaissonProduct[], c: FilterCriteria): C
     if (!inRange(p.largeur_cm, c.lMin, c.lMax)) return false;
     if (!inRange(p.profondeur_cm, c.pMin, c.pMax)) return false;
     if (!inRange(p.hauteur_cm, c.hMin, c.hMax)) return false;
+    if (c.enseignes && c.enseignes.length > 0 && !c.enseignes.includes(p.enseigne)) return false;
     if (c.gammes && c.gammes.length > 0 && !c.gammes.includes(p.gamme)) return false;
     if (c.types && c.types.length > 0 && !c.types.includes(p.type_meuble)) return false;
     if (c.montages && c.montages.length > 0 && !c.montages.includes(p.montage)) return false;

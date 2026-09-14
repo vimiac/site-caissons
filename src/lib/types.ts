@@ -66,6 +66,7 @@ export interface FilterCriteria {
   pMax?: number;
   hMin?: number;
   hMax?: number;
+  enseignes?: string[];
   gammes?: string[];
   types?: string[];
   pieces?: string[];
