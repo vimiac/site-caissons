@@ -8,6 +8,14 @@
     "IKEA": {
       "recherche": "https://www.ikea.com/fr/fr/search/?q={q}",
       "site": "https://www.ikea.com/fr/fr/"
+    },
+    "Castorama": {
+      "recherche": "https://www.castorama.fr/search?q={q}",
+      "site": "https://www.castorama.fr/"
+    },
+    "Muuto": {
+      "recherche": "https://www.muuto.com/search?q={q}",
+      "site": "https://www.muuto.com/"
     }
   }
 }

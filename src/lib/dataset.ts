@@ -3,6 +3,7 @@
 // Exécuté dans le frontmatter Astro (build statique). Aucune donnée inventée.
 
 import rawIkea from '../data/ikea.json';
+import rawAutres from '../data/castorama-muuto.json'; // Castorama Atomia + Muuto Stacked (lot 14/09)
 import gammeUrls from '../data/gamme-urls.json';
 import marqueRecherche from '../data/marque-recherche.json';
 import { normalizeProduct, validateProduct, parseDimensionTriplet } from './dimensions';
@@ -121,7 +122,11 @@ export function buildDataset(): Dataset {
   const confirmes: CaissonProduct[] = [];
   const quarantaine: QuarantineEntry[] = [];
 
-  const rawProduits: any[] = (rawIkea as any).produits ?? [];
+  // Sources multi-marques : IKEA + les marques du lot (Castorama Atomia, Muuto Stacked).
+  const rawProduits: any[] = [
+    ...((rawIkea as any).produits ?? []),
+    ...((rawAutres as any).produits ?? []),
+  ];
   for (const raw of rawProduits) {
     const n = normalizeProduct(raw);
     const errors = validateProduct(n);
@@ -136,7 +141,10 @@ export function buildDataset(): Dataset {
     confirmes.push(p);
   }
 
-  const groups: IncertainGroup[] = (rawIkea as any).produits_incertains ?? [];
+  const groups: IncertainGroup[] = [
+    ...((rawIkea as any).produits_incertains ?? []),
+    ...((rawAutres as any).produits_incertains ?? []),
+  ];
   const expanded = expandIncertains(groups, confirmes);
   const incertains = expanded.produits;
   quarantaine.push(...expanded.quarantaine);

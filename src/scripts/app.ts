@@ -30,8 +30,9 @@ const B = PAYLOAD.bounds;
 // Échelle partagée des schémas (px/cm), dérivée des bornes calculées : tous les caissons comparables.
 const SCALE = computeSchemaScale(B);
 
-const FACET_FIELDS: Array<keyof FilterCriteria> = ['gammes', 'types', 'pieces', 'montages', 'materiaux'];
+const FACET_FIELDS: Array<keyof FilterCriteria> = ['enseignes', 'gammes', 'types', 'pieces', 'montages', 'materiaux'];
 const FACET_NAME: Record<string, string> = {
+  enseignes: 'enseignes',
   gammes: 'gammes',
   types: 'types',
   pieces: 'pieces',
@@ -62,6 +63,7 @@ function readState(): { criteria: FilterCriteria; sort: SortKey; dir: SortDir; v
     pMax: num('pmax'),
     hMin: num('hmin'),
     hMax: num('hmax'),
+    enseignes: readCheckboxes('enseignes'),
     gammes: readCheckboxes('gammes'),
     types: readCheckboxes('types'),
     pieces: readCheckboxes('pieces'),

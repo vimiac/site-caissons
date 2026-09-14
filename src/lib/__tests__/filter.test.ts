@@ -84,3 +84,27 @@ describe('sortProducts', () => {
     expect(r[0].gamme).toBe('BILLY');
   });
 });
+
+describe('filtre par marque (enseigne) + cotes décimales', () => {
+  const multi = [
+    make({ id: 'ik', enseigne: 'IKEA', gamme: 'BILLY', largeur_cm: 40, profondeur_cm: 28, hauteur_cm: 106 }),
+    make({ id: 'ca', enseigne: 'Castorama', gamme: 'Atomia', largeur_cm: 75, profondeur_cm: 35, hauteur_cm: 187.5 }),
+    make({ id: 'mu', enseigne: 'Muuto', gamme: 'Stacked', largeur_cm: 21.8, profondeur_cm: 35, hauteur_cm: 43.6 }),
+  ];
+
+  it('filtre sur une marque', () => {
+    expect(filterProducts(multi, { enseignes: ['Muuto'] }).map((p) => p.id)).toEqual(['mu']);
+    expect(filterProducts(multi, { enseignes: ['IKEA', 'Castorama'] }).map((p) => p.id).sort()).toEqual(['ca', 'ik']);
+  });
+
+  it('les cotes en ,5 / ,x passent les filtres SANS arrondi', () => {
+    // borne haute décimale : 187.5 inclus quand hMax >= 187.5, exclu à 187.4
+    expect(filterProducts(multi, { hMax: 187.5 }).map((p) => p.id).sort()).toEqual(['ca', 'ik', 'mu']);
+    expect(filterProducts(multi, { hMax: 187.4 }).map((p) => p.id).sort()).toEqual(['ik', 'mu']);
+    // largeur décimale 21.8 : incluse à lMin 21.8, exclue à 21.9
+    expect(filterProducts(multi, { lMin: 21.8 }).map((p) => p.id).sort()).toEqual(['ca', 'ik', 'mu']);
+    expect(filterProducts(multi, { lMin: 21.9 }).map((p) => p.id).sort()).toEqual(['ca', 'ik']);
+    // hauteur décimale 43.6 exactement
+    expect(filterProducts(multi, { hMin: 43.6, hMax: 43.6 }).map((p) => p.id)).toEqual(['mu']);
+  });
+});
