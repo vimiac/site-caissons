@@ -45,6 +45,42 @@ export function caissonGeom(p: CaissonProduct, scale: number): SchemaGeom {
   return { faceW, faceH, depth, x, y };
 }
 
+// --- Vignette compacte pour le TABLEAU dense (silhouette lisible dans une petite case) ---
+export const THUMB_W = 46;
+export const THUMB_H = 40;
+const THUMB_PAD = 3;
+const THUMB_DEPTH_MAX = 7;
+
+/**
+ * Petit schéma « vignette » : même silhouette (proportions RÉELLES largeur×hauteur préservées) que
+ * la carte, mais SANS cotes texte (illisibles à cette taille) et mise à l'échelle pour REMPLIR la
+ * case — chaque caisson reste reconnaissable même petit. Réutilise DEPTH_FACTOR et le style .s-*.
+ * Les cotes restent accessibles via aria-label (lecteurs d'écran).
+ */
+export function caissonThumbSVG(p: CaissonProduct): string {
+  const depthGuess = Math.min(THUMB_DEPTH_MAX, p.profondeur_cm); // budget profondeur (visuel)
+  const availW = THUMB_W - THUMB_PAD * 2 - depthGuess;
+  const availH = THUMB_H - THUMB_PAD * 2 - depthGuess;
+  const s = Math.min(availW / Math.max(1, p.largeur_cm), availH / Math.max(1, p.hauteur_cm));
+  const w = p.largeur_cm * s;
+  const h = p.hauteur_cm * s;
+  const d = Math.min(THUMB_DEPTH_MAX, p.profondeur_cm * s * DEPTH_FACTOR);
+  const x = THUMB_PAD;
+  const y = THUMB_H - THUMB_PAD - h; // collé au « sol »
+  const label = `${p.gamme} ${p.largeur_cm}×${p.profondeur_cm}×${p.hauteur_cm} cm`;
+  const top = `${n(x)},${n(y)} ${n(x + d)},${n(y - d)} ${n(x + w + d)},${n(y - d)} ${n(x + w)},${n(y)}`;
+  const side = `${n(x + w)},${n(y)} ${n(x + w + d)},${n(y - d)} ${n(x + w + d)},${n(y - d + h)} ${n(x + w)},${n(y + h)}`;
+  return (
+    `<svg class="schema thumb" viewBox="0 0 ${THUMB_W} ${THUMB_H}" role="img" aria-label="${esc(label)}" ` +
+    `preserveAspectRatio="xMidYMax meet" focusable="false">` +
+    `<title>${esc(label)}</title>` +
+    `<polygon class="s-top" points="${top}"/>` +
+    `<polygon class="s-side" points="${side}"/>` +
+    `<rect class="s-face" x="${n(x)}" y="${n(y)}" width="${n(w)}" height="${n(h)}"/>` +
+    `</svg>`
+  );
+}
+
 function n(v: number): string {
   // arrondi propre pour des attributs SVG lisibles et déterministes
   return (Math.round(v * 100) / 100).toString();
