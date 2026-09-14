@@ -12,8 +12,10 @@
     "marques_confirmees": [
       "Castorama — GoodHome Atomia",
       "Muuto — Stacked",
-      "HAY — Colour Cabinet"
+      "HAY — Colour Cabinet",
+      "Leroy Merlin — DELINIA (cuisine)"
     ],
+    "note_leroymerlin": "Demande Arnaud 14/09 (LM vendu en direct, hors marketplace). DELINIA (cuisine) = INTÉGRABLE : le catalogue cuisine LM 2022 (PDF OFFICIEL, big2 CDN hors bot-wall, cahier prix pp.100-102) publie une LISTE de modules réels W×H×P → 9 combinaisons verbatim saisies (sous-ensemble curaté du catalogue, PAS la gamme exhaustive ~94 modèles). SPACEO (Home/Evo'M) = NON intégrable : guides en prose (AXES seulement) + configurateur 3D + cotes fiche-par-fiche, aucun tableau/PDF de gamme → ma veille du 13/09 confirmée pour SPACEO. AUTO-CORRECTION : la veille classait 'Leroy Merlin' en bloc non-intégrable ; DELINIA fait exception (liste publiée). Flancs pleins OUI pour les deux ; marques propres ADEO/LM vendues en direct. Même standard grille-vs-axes que Montana/USM (pas de double poids).",
     "marques_ecartees_ce_lot": {
       "Montana": "ÉCARTÉE (règle god : grille non confirmée → ne rien saisir ; Arnaud l'a aussi mise de côté le 14/09). Confirmés à la source : facteur 5,7 cm (dim = n×5,7+1,2) ; hauteurs 12,6/18,3/24/35,4/46,8/69,6 ; profondeurs 20/30/38/46,8 ; largeurs réelles 35,4/46,8/69,6 ; module 1111 = 69,6×69,6 ; boîte à flancs pleins ; MDF 12 mm ; livrée FR via revendeurs. NON confirmable : la LISTE ÉNUMÉRÉE des modules réels W×P×H (page basic-units = fiches React bloquées Cloudflare ; catalogue 'model overview' en IMAGES rasterisées). Axes ≠ modules réels → saisir = cartésien = fantômes. Réintégrable si (a) basic-units lisible en texte, (b) tableau de cotes texte publié, ou (c) saisie main par Arnaud des modules constatés.",
       "USM Haller": "ÉCARTÉE (arbitrage 4e marque, sur preuve, 14/09). Échoue DEUX règles : (1) flancs pleins — cadre à boules+tubes intrinsèquement OUVERT, panneaux latéraux = habillage optionnel, compartiments voisins partagent le cadre sans flanc propre → pas une boîte pleine native (comme IVAR) ; (2) module réel vérifiable — usm.com publie des AXES (L 10/15/17,5/25/35/39,5/50/75 · P 25/35/50/75 · H idem L) + règle 'cote hors-tout = entraxe + 23 mm', mais AUCUNE table de boîtes réelles, et les sources tierces divergent sur l'offset (+23 officiel vs +36) → dériver = inventer/extraire. Livrée FR (fr.shop.usm.com). Pour la retenir il faudrait la traiter en système ouvert configurable (hors périmètre caisson)."
@@ -26,17 +28,19 @@
       "muuto": "muuto.com — fiche Stacked, module Large 65,4×35×43,6 verbatim (2026-09-14)",
       "muuto-pfs": "Muuto — Product Facts Sheet OFFICIEL (Stacked S/M/L), document Muuto miroir revendeur — non lu depuis une URL muuto.com (2026-09-14)",
       "hay": "hay.com — fiches Colour Cabinet Floor Medium 120×39×51 et Floor Large 180×39×51, cotes verbatim (2026-09-14)",
-      "hay-nl": "hay.nl + revendeurs — variantes Colour Cabinet (Floor Small, Tall, Wall Small/Medium), non recapturées verbatim sur une fiche hay.com (2026-09-14)"
+      "hay-nl": "hay.nl + revendeurs — variantes Colour Cabinet (Floor Small, Tall, Wall Small/Medium), non recapturées verbatim sur une fiche hay.com (2026-09-14)",
+      "lm-catalogue": "leroymerlin.fr big2 CDN — catalogue cuisine LM 2022 (PDF OFFICIEL, cahier prix pp.100-102), liste de modules DELINIA réels W×H×P, verbatim (2026-09-14)"
     },
     "champs_vides_forme_b": [
       "prix",
       "devise",
       "date_maj_prix"
     ],
-    "note_integration": "Sous-ensemble SANCTIONNÉ par god (integrer-2-marques, 14/09) : Castorama Atomia + Muuto Stacked UNIQUEMENT. HAY/Colour Cabinet livré par Scooter dans le même fichier mais HORS de ce lot (god a nommé 2 marques) → mis en attente, non intégré. Entrées produits recopiées VERBATIM depuis la livraison Scooter.",
+    "note_integration": "Sous-ensemble SANCTIONNÉ par god (phyllis-hay, 14/09) : Castorama Atomia + Muuto Stacked + HAY Colour Cabinet. Leroy Merlin/DELINIA, ajouté par Scooter au même fichier APRÈS l instruction, EXCLU (hors lot, en attente décision god). Entrées recopiées VERBATIM.",
     "marques_integrees_ce_lot": [
       "Castorama — GoodHome Atomia",
-      "Muuto — Stacked"
+      "Muuto — Stacked",
+      "HAY — Colour Cabinet"
     ]
   },
   "produits": [
@@ -303,7 +307,63 @@
       "prix": null,
       "devise": null,
       "date_maj_prix": null
+    },
+    {
+      "id": "hay-colour-cabinet-120x39x51",
+      "enseigne": "HAY",
+      "gamme": "Colour Cabinet",
+      "nom_produit": "Colour Cabinet 120×39×51",
+      "type_meuble": "bas",
+      "largeur_cm": 120,
+      "profondeur_cm": 39,
+      "hauteur_cm": 51,
+      "montage": "pose",
+      "materiau": "MDF (Valchromat)",
+      "piece": [
+        "salon"
+      ],
+      "url_produit": "gamme:COLOUR-CABINET",
+      "source_type": "grille_officielle",
+      "certitude": "confirmé",
+      "source": "hay",
+      "prix": null,
+      "devise": null,
+      "date_maj_prix": null
+    },
+    {
+      "id": "hay-colour-cabinet-180x39x51",
+      "enseigne": "HAY",
+      "gamme": "Colour Cabinet",
+      "nom_produit": "Colour Cabinet 180×39×51",
+      "type_meuble": "bas",
+      "largeur_cm": 180,
+      "profondeur_cm": 39,
+      "hauteur_cm": 51,
+      "montage": "pose",
+      "materiau": "MDF (Valchromat)",
+      "piece": [
+        "salon"
+      ],
+      "url_produit": "gamme:COLOUR-CABINET",
+      "source_type": "grille_officielle",
+      "certitude": "confirmé",
+      "source": "hay",
+      "prix": null,
+      "devise": null,
+      "date_maj_prix": null
     }
   ],
-  "produits_incertains": []
+  "produits_incertains": [
+    {
+      "gamme": "Colour Cabinet",
+      "combinaisons": [
+        "60×39×51 (Floor Small)",
+        "75×39×130 (Tall)",
+        "60×39×39 (Wall Small)",
+        "120×39×39 (Wall Medium)"
+      ],
+      "raison": "variantes Colour Cabinet réelles (hay.nl + revendeurs) non recapturées verbatim sur une fiche hay.com — promouvoir après recheck verbatim officiel",
+      "source": "hay-nl"
+    }
+  ]
 }

@@ -61,7 +61,7 @@ python3 -m http.server 8000 --directory dist
 # puis ouvrir http://localhost:8000  (PAS le fichier en double-clic)
 ```
 
-Vérifié : servi en HTTP, la vue par défaut affiche les 65 combinaisons **vérifiées** (0 non
+Vérifié : servi en HTTP, la vue par défaut affiche les 67 combinaisons **vérifiées** (0 non
 vérifiée), et les 3 sliders L/P/H filtrent bien.
 
 ---
@@ -91,8 +91,8 @@ invariants du site tiennent. Visible en **vue cartes** et dans le **comparateur*
 
 ### La règle qui commande l'affichage
 
-Le jeu de données contient **65 combinaisons vérifiées** (3 marques : IKEA, Castorama/Atomia, Muuto/Stacked) et **24 non vérifiées** (IKEA).
-**Rien d'incertain n'est affiché comme certain.** Par défaut, **seules les 65 vérifiées sont
+Le jeu de données contient **67 combinaisons vérifiées** (4 marques : IKEA, Castorama/Atomia, Muuto/Stacked, HAY/Colour Cabinet) et **28 non vérifiées** (IKEA + HAY).
+**Rien d'incertain n'est affiché comme certain.** Par défaut, **seules les 67 vérifiées sont
 filtrables** ; les non vérifiées n'apparaissent qu'après avoir coché **« Inclure les combinaisons
 non vérifiées »**, et portent alors un **badge « non vérifié »**. Cette règle est appliquée dans le
 filtrage (`filter.ts`), pas en cachant les données — elle ne peut donc pas être contournée par un
@@ -180,9 +180,9 @@ Chaque résultat porte **un lien vers la marque**, résolu au build selon cette 
 
 - **Island vanilla TypeScript** (pas de Preact/React) : réduit les dépendances (proche du standard,
   moins à maintenir). La logique testable (normalisation, filtrage) est isolée dans `src/lib/`.
-- **Plusieurs marques câblées** : `ikea.json` (53) + `castorama-muuto.json` (Castorama/Atomia 9 + Muuto/Stacked 3),
-  importées dans `dataset.ts`. Un **filtre « Marque »** (facette `enseignes`) permet de distinguer et filtrer par marque.
-  Cotes décimales réelles gérées (Atomia 37,5/187,5 ; Muuto 21,8/43,6/65,4) : bornes et sliders au **pas de 0,1 cm**, aucun arrondi.
+- **Plusieurs marques câblées** : `ikea.json` (53) + `marques-2026-09-14.json` (Castorama/Atomia 9 + Muuto/Stacked 3 + HAY/Colour Cabinet 2 vérifiées, + 4 HAY non vérifiées),
+  importées dans `dataset.ts`. Un **filtre « Marque »** (facette `enseignes`, 4 marques) permet de distinguer et filtrer par marque.
+  Cotes décimales réelles gérées (Atomia 37,5/187,5 ; Muuto 21,8/43,6/65,4 ; HAY profondeur 39) : bornes et sliders au **pas de 0,1 cm**, aucun arrondi.
 - **Facettes en cases à cocher** (plutôt que `<select multiple>`) : meilleur au clavier et au doigt.
 - **`site` dans `astro.config.mjs`** = `https://caissons.vimiac.fr` (placeholder) — à ajuster au vrai
   domaine avant déploiement.

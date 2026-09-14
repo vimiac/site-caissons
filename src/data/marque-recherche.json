@@ -16,6 +16,10 @@
     "Muuto": {
       "recherche": "https://www.muuto.com/search?q={q}",
       "site": "https://www.muuto.com/"
+    },
+    "HAY": {
+      "recherche": "https://www.hay.com/search?q={q}",
+      "site": "https://www.hay.com/"
     }
   }
 }
