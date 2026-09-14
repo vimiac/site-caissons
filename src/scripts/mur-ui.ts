@@ -1,0 +1,90 @@
+// UI du module « composition murale » — 100 % navigateur, sur le dataset embarqué.
+// Lit les 76 combinaisons confirmées, appelle composerMur, rend les 3 meilleures piles
+// avec un avertissement CONTEXTUEL porté par chaque combinaison (jamais un pied de page).
+// Aucune image, aucune requête réseau.
+import { composerMur, toPiece, type ParamsMur, type Composition } from '../lib/mur';
+import type { CaissonProduct } from '../lib/types';
+
+const dataEl = document.getElementById('dataset-json');
+const form = document.getElementById('mur-form') as HTMLFormElement | null;
+const out = document.getElementById('mur-results');
+if (dataEl && form && out) {
+  const payload = JSON.parse(dataEl.textContent || '{}') as { produits: CaissonProduct[] };
+  const PIECES = payload.produits.filter((p) => p.certitude === 'confirmé').map(toPiece);
+
+  const val = (id: string) => Number((document.getElementById(id) as HTMLInputElement)?.value);
+  const esc = (s: string) =>
+    s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c] as string));
+
+  // Une barre CSS (pas d'image) qui montre le taux de remplissage horizontal d'une rangée.
+  function barre(largeurMur: number, rempli: number): string {
+    const pct = Math.max(0, Math.min(100, (rempli / largeurMur) * 100));
+    return `<span class="mur-bar" aria-hidden="true"><span class="mur-bar-fill" style="width:${pct.toFixed(1)}%"></span></span>`;
+  }
+
+  function badge(c: Composition): string {
+    const a = c.avertissement;
+    if (!a.contextuel) {
+      // Combinaison sanctionnée ou rangée simple : message neutre, pas d'alerte visible forte.
+      return `<p class="mur-note mur-note-ok">${esc(a.message)}</p>`;
+    }
+    const cls = a.niveau === 'fort' ? 'mur-note-fort' : 'mur-note-attention';
+    const detail = a.detailLimites ? ` <span class="mur-limites">(${esc(a.detailLimites)})</span>` : '';
+    return `<p class="mur-note ${cls}" role="note">⚠️ ${esc(a.message)}${detail}</p>`;
+  }
+
+  function rendre(res: ReturnType<typeof composerMur>, largeurMur: number): string {
+    if (res.aucuneSolution) {
+      return `<p class="mur-vide">Aucune combinaison ne tient dans ces contraintes. Élargissez la profondeur ou la hauteur, ou réduisez la largeur du mur.</p>`;
+    }
+    return res.compositions
+      .map((c, i) => {
+        const rangs = c.rangees
+          .slice()
+          .reverse() // affichage haut → bas
+          .map((r) => {
+            const items = r.pieces.map((p) => `${esc(p.nom)}`).join(' + ');
+            return `<div class="mur-rangee">
+              <div class="mur-rangee-tete"><strong>${esc(r.gamme)}</strong> · h ${r.hauteur} cm · rempli ${r.largeurRemplie}/${largeurMur} cm (résidu ${r.residu} cm)</div>
+              ${barre(largeurMur, r.largeurRemplie)}
+              <div class="mur-pieces">${items}</div>
+            </div>`;
+          })
+          .join('');
+        return `<article class="mur-compo">
+          <header class="mur-compo-head">
+            <h3>Proposition ${i + 1}</h3>
+            <span class="mur-stats">${c.rangees.length} rangée(s) · ${c.nbMeubles} meuble(s) · hauteur ${c.hauteurTotale} cm · résidu horizontal ${c.residuHorizontalTotal} cm</span>
+          </header>
+          ${rangs}
+          ${badge(c)}
+        </article>`;
+      })
+      .join('');
+  }
+
+  function composer() {
+    const gammeSel = (document.getElementById('mur-gamme') as HTMLSelectElement)?.value || '';
+    const params: ParamsMur = {
+      largeurCm: val('mur-largeur'),
+      profondeurMaxCm: val('mur-profondeur'),
+      hauteurCm: val('mur-hauteur'),
+      forcerGammeUnique: (document.getElementById('mur-force') as HTMLInputElement)?.checked,
+      gammeImposee: gammeSel || null,
+    };
+    if (!(params.largeurCm > 0) || !(params.hauteurCm > 0) || !(params.profondeurMaxCm > 0)) {
+      out!.innerHTML = `<p class="mur-vide">Renseignez largeur, profondeur max et hauteur (valeurs &gt; 0).</p>`;
+      return;
+    }
+    const t0 = performance.now();
+    const res = composerMur(PIECES, params);
+    const dt = performance.now() - t0;
+    out!.dataset.ms = dt.toFixed(2);
+    out!.innerHTML = rendre(res, params.largeurCm);
+  }
+
+  form.addEventListener('submit', (e) => {
+    e.preventDefault();
+    composer();
+  });
+}
