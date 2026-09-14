@@ -194,6 +194,50 @@ const ISSUES_URL: string | null = null;
       </section>
     </main>
 
+    <!-- ================= MODULE COMPOSITION MURALE ================= -->
+    <section id="mur" class="mur wrap" aria-label="Composition murale">
+      <h2>Composer un mur</h2>
+      <p class="mur-intro">
+        Donnez les dimensions du mur : le module propose des combinaisons de caissons
+        (empilables) qui <strong>tiennent dans l'espace</strong>. C'est un
+        <strong>fait géométrique</strong> sur les cotes — <em>pas</em> une recommandation de montage.
+      </p>
+      <form id="mur-form" class="mur-form" novalidate>
+        <div class="mur-champs">
+          <label>Largeur du mur (cm)
+            <input type="number" id="mur-largeur" min="1" max="600" step="0.1" value="300" required />
+          </label>
+          <label>Profondeur max (cm)
+            <input type="number" id="mur-profondeur" min="1" max="120" step="0.1" value="60" required />
+          </label>
+          <label>Hauteur souhaitée (cm) <span class="mur-hint">maximum à ne pas dépasser</span>
+            <input type="number" id="mur-hauteur" min="1" max="400" step="0.1" value="220" required />
+          </label>
+          <label>Gamme (optionnel)
+            <select id="mur-gamme">
+              <option value="">Toutes les gammes</option>
+              {payload.facettes.gammes.map((g: string) => <option value={g}>{g}</option>)}
+            </select>
+          </label>
+        </div>
+        <label class="check mur-toggle">
+          <input type="checkbox" id="mur-force" />
+          <span>Forcer une <strong>gamme unique</strong> sur toute la pile (empilement dans la même collection)</span>
+        </label>
+        <button type="submit" class="mur-go">Composer</button>
+      </form>
+
+      <div id="mur-results" class="mur-out" aria-live="polite"></div>
+
+      <p class="mur-secu">
+        <strong>Sécurité — renvoi au fabricant.</strong> Les combinaisons sont calculées sur les
+        cotes uniquement. Un empilement affiché indique un <strong>ajustement dimensionnel</strong>,
+        pas un montage recommandé. Suivez toujours la <strong>notice de montage</strong> et les
+        consignes de <strong>fixation murale / anti-basculement</strong> du fabricant.
+        IKEA exige la fixation murale (« Secure it! ») partout.
+      </p>
+    </section>
+
     <!-- Modale comparateur -->
     <dialog id="compare-dialog" aria-label="Comparateur côte à côte">
       <div class="dialog-head">
@@ -223,5 +267,6 @@ const ISSUES_URL: string | null = null;
 
     <script type="application/json" id="dataset-json" set:html={JSON.stringify(payload)} />
     <script src="../scripts/app.ts"></script>
+    <script src="../scripts/mur-ui.ts"></script>
   </body>
 </html>
