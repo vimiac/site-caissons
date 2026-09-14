@@ -189,3 +189,10 @@ table.compare tr.row-schema th[scope="row"] { background: var(--panel); }
 .mur-limites { font-weight: 400; opacity: .9; }
 .mur-vide { color: var(--muted); padding: 8px 0; }
 .mur-secu { margin-top: 16px; background: var(--warn-bg); color: var(--warn-ink); padding: 12px; border-radius: var(--radius); font-size: .85rem; max-width: 90ch; }
+
+/* Liens fournisseur dans le module mur (réutilise .lien-gamme du tableau) */
+.mur-liens { margin-top: 10px; font-size: .85rem; }
+.mur-liens-tete { color: var(--muted); font-weight: 600; }
+.mur-liens ul { list-style: none; margin: 6px 0 0; padding: 0; display: grid; gap: 4px; }
+.mur-liens li { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 10px; }
+.mur-lien-nom { color: var(--ink); }
