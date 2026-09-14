@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { caissonGeom, caissonSVG, computeSchemaScale } from '../schema';
+import { caissonGeom, caissonSVG, caissonThumbSVG, computeSchemaScale, THUMB_W, THUMB_H } from '../schema';
 import type { CaissonProduct, DimensionBounds } from '../types';
 
 function make(over: Partial<CaissonProduct>): CaissonProduct {
@@ -70,5 +70,37 @@ describe('schéma SVG à l’échelle', () => {
     // porte l'accessibilité (role img + titre coté)
     expect(svg).toMatch(/role="img"/);
     expect(svg).toContain('40×28×106');
+  });
+});
+
+function rectOf(svg: string): { w: number; h: number } {
+  const m = svg.match(/class="s-face"[^>]*width="([0-9.]+)"[^>]*height="([0-9.]+)"/);
+  if (!m) throw new Error('rect s-face introuvable');
+  return { w: Number(m[1]), h: Number(m[2]) };
+}
+
+describe('vignette de tableau (compacte)', () => {
+  const billy = make({ gamme: 'BILLY', largeur_cm: 40, profondeur_cm: 28, hauteur_cm: 106 });
+  const kallax = make({ gamme: 'KALLAX', largeur_cm: 77, profondeur_cm: 39, hauteur_cm: 77 });
+
+  it('préserve les proportions réelles largeur/hauteur du caisson', () => {
+    const rb = rectOf(caissonThumbSVG(billy));
+    expect(rb.w / rb.h).toBeCloseTo(40 / 106, 4);
+    const rk = rectOf(caissonThumbSVG(kallax));
+    expect(rk.w / rk.h).toBeCloseTo(1, 4); // 77×77 = carré
+  });
+
+  it('tient dans la boîte de la vignette', () => {
+    const rb = rectOf(caissonThumbSVG(billy));
+    expect(rb.w).toBeLessThanOrEqual(THUMB_W);
+    expect(rb.h).toBeLessThanOrEqual(THUMB_H);
+  });
+
+  it('reste inline et sans ressource externe', () => {
+    const svg = caissonThumbSVG(billy);
+    expect(svg.startsWith('<svg')).toBe(true);
+    expect(svg).not.toMatch(/<img|<image|https?:|url\(|xlink:href|href=/i);
+    expect(svg).toMatch(/role="img"/);
+    expect(svg).toContain('40×28×106'); // cotes accessibles (aria-label/title)
   });
 });

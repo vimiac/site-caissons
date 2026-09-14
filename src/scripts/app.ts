@@ -1,7 +1,7 @@
 // Island client : filtrage/tri 100% navigateur sur le dataset embarqué, état dans l'URL,
 // vue tableau/cartes, comparateur 2-4 avec surlignage des écarts. Aucune requête réseau.
 import { filterProducts, sortProducts } from '../lib/filter';
-import { caissonSVG, computeSchemaScale } from '../lib/schema';
+import { caissonSVG, caissonThumbSVG, computeSchemaScale } from '../lib/schema';
 import type {
   CaissonProduct,
   DimensionBounds,
@@ -185,6 +185,7 @@ function renderTable(list: CaissonProduct[]) {
     .map(
       (p) => `<tr class="${p.certitude === 'incertain' ? 'row-incertain' : ''}">
         <td class="c-cmp">${cmpCheckbox(p)}</td>
+        <td class="c-vignette">${caissonThumbSVG(p)}</td>
         <td class="c-nom">${escapeHtml(p.nom_produit)} ${badge(p)}</td>
         <td>${escapeHtml(p.gamme)}</td>
         <td class="num">${p.largeur_cm}</td>
@@ -200,10 +201,11 @@ function renderTable(list: CaissonProduct[]) {
   results.innerHTML = `<div class="table-scroll"><table class="dense" aria-label="Résultats (tableau)">
     <thead><tr>
       <th scope="col"><span class="sr-only">Comparer</span></th>
+      <th scope="col"><span class="sr-only">Schéma</span></th>
       <th scope="col">Nom</th><th scope="col">Gamme</th>
       <th scope="col" class="num">L</th><th scope="col" class="num">P</th><th scope="col" class="num">H</th>
       <th scope="col">Type</th><th scope="col">Montage</th><th scope="col">Matériau</th><th scope="col">Lien</th>
-    </tr></thead><tbody>${rows || emptyRow(10)}</tbody></table></div>`;
+    </tr></thead><tbody>${rows || emptyRow(11)}</tbody></table></div>`;
 }
 
 function emptyRow(cols: number) {
