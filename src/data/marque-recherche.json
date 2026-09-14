@@ -1,0 +1,13 @@
+{
+  "_meta": {
+    "role": "Modèle d'URL de RECHERCHE par marque (enseigne) + site générique de repli. Le lien d'un caisson est construit en substituant {q} = gamme + cotes (L×P×H, « × » écrit « x »), encodé proprement. On ne cherche PAS l'adresse de chaque produit : on construit une requête sur le moteur de recherche PUBLIC de la marque.",
+    "regle": "recherche = URL du moteur de recherche public contenant le placeholder {q}. site = page d'accueil publique (repli si pas de modèle de recherche). Ni l'un ni l'autre → lien laissé DÉSACTIVÉ (jamais de lien mort). NE PAS inventer d'URL de produit.",
+    "cle": "enseigne en MAJUSCULES, exactement comme le champ 'enseigne' du dataset."
+  },
+  "marques": {
+    "IKEA": {
+      "recherche": "https://www.ikea.com/fr/fr/search/?q={q}",
+      "site": "https://www.ikea.com/fr/fr/"
+    }
+  }
+}

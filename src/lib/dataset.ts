@@ -4,7 +4,9 @@
 
 import rawIkea from '../data/ikea.json';
 import gammeUrls from '../data/gamme-urls.json';
+import marqueRecherche from '../data/marque-recherche.json';
 import { normalizeProduct, validateProduct, parseDimensionTriplet } from './dimensions';
+import { resolveLien, type MarqueLiens } from './liens';
 import type {
   CaissonProduct,
   Dataset,
@@ -20,6 +22,7 @@ interface IncertainGroup {
 }
 
 const URL_MAP: Record<string, string | null> = (gammeUrls as any).urls ?? {};
+const MARQUES: Record<string, MarqueLiens> = (marqueRecherche as any).marques ?? {};
 
 /** Résout le placeholder "gamme:<GAMME>" → URL publique de la page de gamme, ou null. */
 function resolveGammeUrl(urlProduit: string | undefined, gamme: string): string | null {
@@ -31,11 +34,14 @@ function resolveGammeUrl(urlProduit: string | undefined, gamme: string): string 
 
 function toProduct(n: Record<string, unknown>): CaissonProduct {
   const gamme = String(n.gamme);
-  return {
+  const urlGamme = resolveGammeUrl(n.url_produit as string | undefined, gamme);
+  const p = {
     ...(n as any),
     gamme,
-    url_gamme_resolue: resolveGammeUrl(n.url_produit as string | undefined, gamme),
+    url_gamme_resolue: urlGamme,
   } as CaissonProduct;
+  p.lien = resolveLien(p, MARQUES, urlGamme); // recherche préremplie > gamme > site > null
+  return p;
 }
 
 /**

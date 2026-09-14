@@ -19,6 +19,8 @@ export interface CaissonProduct {
   piece?: string[];
   url_produit: string; // placeholder "gamme:<GAMME>" en entrée ; résolu au build
   url_gamme_resolue?: string | null; // URL publique de la page de gamme, ou null (lien désactivé)
+  // Lien sortant final résolu au build : recherche préremplie > gamme explicite > site générique.
+  lien?: { href: string; kind: 'recherche' | 'gamme' | 'site' } | null;
   source_type?: string;
   certitude: Certitude;
   source?: string;
