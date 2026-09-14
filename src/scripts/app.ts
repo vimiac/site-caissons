@@ -1,442 +1,359 @@
-// Island client : filtrage/tri 100% navigateur sur le dataset embarqué, état dans l'URL,
-// vue tableau/cartes, comparateur 2-4 avec surlignage des écarts. Aucune requête réseau.
+// Island client de la refonte « plan technique ». 100 % navigateur, aucune requête réseau.
+// Réutilise la logique métier VALIDÉE d'Arnaud (filter.ts / sortProducts, liens résolus au
+// build) ; n'y touche pas. Ajoute : dessin SVG du mur d'essai, cartes à l'échelle, packing
+// mono-rangée, tri par chips, sélection→mise en avant, état sérialisé dans l'URL.
 import { filterProducts, sortProducts } from '../lib/filter';
-import { caissonSVG, caissonThumbSVG, computeSchemaScale } from '../lib/schema';
 import { rechercheQuery } from '../lib/liens';
-import type {
-  CaissonProduct,
-  DimensionBounds,
-  FilterCriteria,
-  SortDir,
-  SortKey,
-} from '../lib/types';
+import type { CaissonProduct, FilterCriteria, SortKey, SortDir } from '../lib/types';
 
 interface Payload {
   produits: CaissonProduct[];
-  bounds: DimensionBounds;
-  facettes: Record<string, string[]>;
-  compteurs: { confirmes: number; incertains: number; quarantaine: number };
+  facettes: { gammes: string[]; pieces: string[]; montages: string[] };
+  compteurs: { confirmes: number; incertains: number };
 }
 
-const $ = <T extends HTMLElement = HTMLElement>(sel: string) => document.querySelector(sel) as T | null;
-const $$ = <T extends HTMLElement = HTMLElement>(sel: string) =>
-  Array.from(document.querySelectorAll(sel)) as T[];
+const $ = <T extends HTMLElement = HTMLElement>(s: string) => document.querySelector(s) as T | null;
+const $$ = <T extends HTMLElement = HTMLElement>(s: string) =>
+  Array.from(document.querySelectorAll(s)) as T[];
 
 const dataEl = document.getElementById('dataset-json');
 if (!dataEl) throw new Error('dataset-json manquant');
 const PAYLOAD: Payload = JSON.parse(dataEl.textContent || '{}');
 const ALL = PAYLOAD.produits;
-const B = PAYLOAD.bounds;
-// Échelle partagée des schémas (px/cm), dérivée des bornes calculées : tous les caissons comparables.
-const SCALE = computeSchemaScale(B);
 
-const FACET_FIELDS: Array<keyof FilterCriteria> = ['enseignes', 'gammes', 'types', 'pieces', 'montages', 'materiaux'];
-const FACET_NAME: Record<string, string> = {
-  enseignes: 'enseignes',
-  gammes: 'gammes',
-  types: 'types',
-  pieces: 'pieces',
-  montages: 'montages',
-  materiaux: 'materiaux',
-};
+// ---------- libellés d'affichage (données codées → texte hifi) ----------
+const MONTAGE_LABEL: Record<string, string> = { pose: 'posé au sol', les_deux: 'posé ou suspendu' };
+const PIECE_LABEL: Record<string, string> = { multi: 'multi-pièces' };
+const TYPE_LABEL: Record<string, string> = { bibliotheque: 'bibliothèque' };
+const montageLabel = (v: string) => MONTAGE_LABEL[v] ?? v;
+const pieceLabel = (v: string) => PIECE_LABEL[v] ?? v;
+const typeLabel = (v: string) => TYPE_LABEL[v] ?? v;
 
-// ---------- état comparateur ----------
-const compareIds = new Set<string>();
-const MAX_COMPARE = 4;
+const esc = (s: string) =>
+  s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c] as string));
+
+// ---------- état ----------
+const DEF = { w: 240, d: 45, h: 200 };
+const sel = new Set<string>();
+let sortKey: SortKey = 'largeur_cm';
+let sortDir: SortDir = 'desc';
 
 // ---------- lecture des contrôles ----------
-function readCheckboxes(name: string): string[] {
-  return $$<HTMLInputElement>(`input[name="${name}"]:checked`).map((el) => el.value);
+const rangeVal = (axis: 'w' | 'd' | 'h') => Number(($<HTMLInputElement>(`#s-${axis}`))?.value ?? DEF[axis]);
+function pressedValues(family: string): string[] {
+  return $$(`.chip[data-family="${family}"][aria-pressed="true"]`).map((b) => b.dataset.value!).filter(Boolean);
 }
+const incOn = () => $('#chip-inc')?.getAttribute('aria-pressed') === 'true';
 
-function num(id: string): number {
-  const el = $<HTMLInputElement>(`#${id}`);
-  return el ? Number(el.value) : 0;
-}
-
-function readState(): { criteria: FilterCriteria; sort: SortKey; dir: SortDir; view: string } {
-  const criteria: FilterCriteria = {
+function criteria(): FilterCriteria {
+  return {
+    lMax: rangeVal('w'),
+    pMax: rangeVal('d'),
+    hMax: rangeVal('h'),
+    gammes: pressedValues('gammes'),
+    pieces: pressedValues('pieces'),
+    montages: pressedValues('montages'),
     q: ($<HTMLInputElement>('#q')?.value || '').trim() || undefined,
-    lMin: num('lmin'),
-    lMax: num('lmax'),
-    pMin: num('pmin'),
-    pMax: num('pmax'),
-    hMin: num('hmin'),
-    hMax: num('hmax'),
-    enseignes: readCheckboxes('enseignes'),
-    gammes: readCheckboxes('gammes'),
-    types: readCheckboxes('types'),
-    pieces: readCheckboxes('pieces'),
-    montages: readCheckboxes('montages'),
-    materiaux: readCheckboxes('materiaux'),
-    inclureIncertains: $<HTMLInputElement>('#inc')?.checked === true,
+    inclureIncertains: incOn(),
   };
-  const sort = ($<HTMLSelectElement>('#sort')?.value || 'nom') as SortKey;
-  const dir = (($<HTMLButtonElement>('#dir')?.dataset.dir as SortDir) || 'asc') as SortDir;
-  const view = ($<HTMLButtonElement>('#view-cards')?.getAttribute('aria-pressed') === 'true')
-    ? 'cards'
-    : 'table';
-  return { criteria, sort, dir, view };
+}
+
+// ---------- géométrie du mur d'essai (repris du handoff, au pixel près) ----------
+const PAD = 40, FLOOR = 340, TOP = 60;
+function murGeom(maxW: number, maxH: number) {
+  const scale = Math.min((1000 - 2 * PAD) / Math.max(maxW, 60), (FLOOR - TOP) / Math.max(maxH, 40));
+  const boxW = maxW * scale, boxH = maxH * scale;
+  const vbW = Math.round(boxW + 2 * PAD);
+  return { scale, boxW, boxH, vbW, box: { x: PAD, y: FLOOR - boxH, w: boxW, h: boxH } };
+}
+
+// candidats du packing : les sélectionnés d'abord, puis l'ordre de tri courant.
+function packCandidates(sorted: CaissonProduct[]): CaissonProduct[] {
+  if (sel.size === 0) return sorted;
+  return [...sorted.filter((p) => sel.has(p.id)), ...sorted.filter((p) => !sel.has(p.id))];
+}
+
+interface Shape { p: CaissonProduct; x: number; y: number; w: number; h: number; }
+function pack(sorted: CaissonProduct[], maxW: number, scale: number): { shapes: Shape[]; occupe: number } {
+  const shapes: Shape[] = [];
+  let cursor = 0;
+  for (const p of packCandidates(sorted)) {
+    if (shapes.length >= 14) break;
+    if (cursor + p.largeur_cm > maxW) continue; // continue, PAS break (KALLAX 182 ne bloque pas)
+    shapes.push({ p, x: PAD + cursor * scale, y: FLOOR - p.hauteur_cm * scale, w: p.largeur_cm * scale, h: p.hauteur_cm * scale });
+    cursor += p.largeur_cm;
+  }
+  return { shapes, occupe: cursor };
+}
+
+const reduced = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+function shelves(x: number, yTop: number, w: number, h: number, hCm: number, stroke = 'rgba(23,24,28,.35)'): string {
+  // une ligne d'étagère tous les ~40 cm de hauteur.
+  const n = Math.max(0, Math.floor(hCm / 40));
+  let out = '';
+  for (let k = 1; k <= n; k++) {
+    const yy = (yTop + h) - (h * k) / (n + 1);
+    out += `<line x1="${x.toFixed(1)}" y1="${yy.toFixed(1)}" x2="${(x + w).toFixed(1)}" y2="${yy.toFixed(1)}" stroke="${stroke}" stroke-width="1" />`;
+  }
+  return out;
+}
+
+function renderMur(sorted: CaissonProduct[], maxW: number, maxD: number, maxH: number) {
+  const g = murGeom(maxW, maxH);
+  const { shapes, occupe } = pack(sorted, maxW, g.scale);
+  const N = Math.round(100 / g.scale);
+  $('#mur-scale')!.textContent = `échelle 1:${N}`;
+
+  // badge d'état (résumé texte, lisible par lecteur d'écran).
+  const stateEl = $('#mur-state')!;
+  if (shapes.length === 0) stateEl.textContent = 'aucun caisson ne rentre';
+  else stateEl.textContent = `${shapes.length} caisson${shapes.length > 1 ? 's' : ''} aligné${shapes.length > 1 ? 's' : ''} · ${Math.round(occupe)} / ${maxW} cm occupés`;
+
+  const animClass = reduced() ? '' : 'anim-draw';
+  const floorX2 = g.vbW - PAD;
+
+  // 1. quadrillage (pas de 50 unités, borné à la zone utile).
+  let grid = '';
+  for (let gx = PAD; gx <= floorX2; gx += 50) grid += `<line x1="${gx}" y1="${TOP}" x2="${gx}" y2="${FLOOR}" stroke="rgba(23,24,28,.1)" stroke-width="1" />`;
+  for (let gy = FLOOR; gy >= TOP; gy -= 50) grid += `<line x1="${PAD}" y1="${gy}" x2="${floorX2}" y2="${gy}" stroke="rgba(23,24,28,.1)" stroke-width="1" />`;
+
+  // 2. rectangle de contrainte + label.
+  const box = g.box;
+  const constraint =
+    `<text x="${PAD}" y="${(box.y - 12).toFixed(1)}" fill="#b8482a" font-family="'IBM Plex Mono',monospace" font-size="13">contrainte ${maxW} × ${maxD} × ${maxH} cm</text>` +
+    `<rect class="${animClass}" x="${box.x.toFixed(1)}" y="${box.y.toFixed(1)}" width="${box.w.toFixed(1)}" height="${box.h.toFixed(1)}" fill="none" stroke="#b8482a" stroke-width="2" stroke-dasharray="9 7" style="stroke-dashoffset:0" />`;
+
+  // 3. caissons empilés (une rangée).
+  const boxes = shapes.map((s, i) => {
+    const selOn = sel.has(s.p.id);
+    const fill = selOn ? 'rgba(184,72,42,.18)' : (i % 2 === 0 ? '#f7f3ea' : '#efe9db');
+    const anim = reduced() ? '' : `class="anim-rise" style="animation-delay:${i * 45}ms"`;
+    const cote = `${s.p.largeur_cm}×${s.p.hauteur_cm}`;
+    return `<g ${anim}>` +
+      `<rect x="${s.x.toFixed(1)}" y="${s.y.toFixed(1)}" width="${s.w.toFixed(1)}" height="${s.h.toFixed(1)}" fill="${fill}" stroke="#17181c" stroke-width="1.5" />` +
+      shelves(s.x, s.y, s.w, s.h, s.p.hauteur_cm) +
+      `<text x="${(s.x + s.w / 2).toFixed(1)}" y="${(FLOOR + 16).toFixed(1)}" fill="#4a4740" font-family="'IBM Plex Mono',monospace" font-size="10.5" text-anchor="middle">${cote}</text>` +
+      `</g>`;
+  }).join('');
+
+  // 4. sol + hachures.
+  const floor =
+    `<line x1="${PAD}" y1="${FLOOR}" x2="${floorX2}" y2="${FLOOR}" stroke="#17181c" stroke-width="2" />` +
+    `<rect x="${PAD}" y="${FLOOR}" width="${(floorX2 - PAD).toFixed(1)}" height="10" fill="url(#hatch)" />`;
+
+  const svg =
+    `<svg viewBox="0 0 ${g.vbW} 400" preserveAspectRatio="xMidYMid meet" role="img" aria-hidden="true">` +
+    `<defs><pattern id="hatch" width="8" height="8" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">` +
+    `<line x1="0" y1="0" x2="0" y2="8" stroke="rgba(23,24,28,.2)" stroke-width="1.2" /></pattern></defs>` +
+    grid + constraint + boxes + floor + `</svg>`;
+  $('#mur-svg')!.innerHTML = svg;
+}
+
+// ---------- mini élévation (carte) ----------
+function elevSVG(p: CaissonProduct, selOn: boolean): string {
+  const scale = 80 / Math.max(p.largeur_cm, p.hauteur_cm);
+  const rw = p.largeur_cm * scale, rh = p.hauteur_cm * scale;
+  const x = 46 - rw / 2, y = 88 - rh;
+  const fill = selOn ? 'rgba(184,72,42,.18)' : '#f7f3ea';
+  const boxCls = reduced() ? '' : 'box';
+  return `<svg class="card-elev" viewBox="0 0 92 92" aria-hidden="true">` +
+    `<line x1="4" y1="88" x2="88" y2="88" stroke="#17181c" stroke-width="1.5" />` +
+    `<g class="${boxCls}">` +
+    `<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${rw.toFixed(1)}" height="${rh.toFixed(1)}" fill="${fill}" stroke="#17181c" stroke-width="1.5" />` +
+    shelves(x, y, rw, rh, p.hauteur_cm, 'rgba(23,24,28,.3)') +
+    `</g></svg>`;
+}
+
+// ---------- cartes ----------
+function lienCarte(p: CaissonProduct): string {
+  const l = p.lien;
+  if (!l) return `<span class="card-lien disabled" title="Aucun lien de marque disponible">lien indisponible</span>`;
+  const label = l.kind === 'recherche' ? `chercher chez ${esc(p.enseigne)} ↗`
+    : l.kind === 'gamme' ? `voir la gamme ↗` : `voir chez ${esc(p.enseigne)} ↗`;
+  const title = l.kind === 'recherche'
+    ? ` title="Recherche préremplie « ${esc(rechercheQuery(p))} » sur ${esc(p.enseigne)}"` : '';
+  return `<a class="card-lien" href="${esc(l.href)}" target="_blank" rel="noopener nofollow"${title}>${label}</a>`;
+}
+
+function bar(k: string, val: number, constraint: number, selOn: boolean): string {
+  const pct = Math.min(100, (val / constraint) * 100);
+  return `<div class="bar"><span class="k">${k}</span><span class="track"><span class="fill" style="width:${pct.toFixed(1)}%"></span></span><span class="v">${val} cm</span></div>`;
+}
+
+function renderCards(sorted: CaissonProduct[], maxW: number, maxD: number, maxH: number) {
+  const box = $('#cards')!;
+  $('#res-count')!.textContent = `Résultats · ${sorted.length}`;
+  if (sorted.length === 0) {
+    box.innerHTML = `<p class="empty-state">Aucun caisson ne tient dans ces contraintes. Élargissez la hauteur ou la profondeur.</p>`;
+    return;
+  }
+  const cards = sorted.slice(0, 96).map((p, i) => {
+    const selOn = sel.has(p.id);
+    const delay = reduced() ? 0 : Math.min(400, i * 15);
+    const nv = p.certitude === 'incertain'
+      ? `<span class="card-badge-nv" title="Combinaison non vérifiée">non vérifié</span>` : '';
+    return `<div class="card" data-selected="${selOn}" style="animation-delay:${delay}ms">
+      <button type="button" class="card-body" data-id="${esc(p.id)}" aria-pressed="${selOn}"
+        aria-label="${esc(p.gamme)} ${p.largeur_cm}×${p.profondeur_cm}×${p.hauteur_cm} cm — ${selOn ? 'retirer du mur' : 'ajouter au mur'}">
+        <div class="card-row1">
+          <div class="card-id">
+            <div class="card-brand">${esc(p.enseigne)}</div>
+            <div class="card-gamme">${esc(p.gamme)}</div>
+            ${nv}
+          </div>
+          <span class="card-type">${esc(typeLabel(p.type_meuble))}</span>
+        </div>
+        <div class="card-viz">
+          ${elevSVG(p, selOn)}
+          <div class="card-bars">
+            ${bar('L', p.largeur_cm, maxW, selOn)}
+            ${bar('P', p.profondeur_cm, maxD, selOn)}
+            ${bar('H', p.hauteur_cm, maxH, selOn)}
+          </div>
+        </div>
+      </button>
+      <div class="card-foot">
+        <span class="mount">${esc(montageLabel(p.montage))}</span>
+        ${selOn ? `<span class="mat" style="color:#b8482a;font-weight:600">sélectionné</span>` : `<span class="mat">${esc(p.materiau || '—')}</span>`}
+        ${lienCarte(p)}
+      </div>
+    </div>`;
+  }).join('');
+  box.innerHTML = `<div class="cards-grid">${cards}</div>`;
+
+  $$('.card-body').forEach((btn) => btn.addEventListener('click', () => {
+    const id = (btn as HTMLElement).dataset.id!;
+    if (sel.has(id)) sel.delete(id); else sel.add(id);
+    update();
+  }));
+}
+
+// ---------- compteur d'en-tête + counts par gamme ----------
+function updateGammeCounts() {
+  const pool = ALL.filter((p) => incOn() || p.certitude === 'confirmé');
+  const counts = new Map<string, number>();
+  for (const p of pool) counts.set(p.gamme, (counts.get(p.gamme) ?? 0) + 1);
+  $$('.count[data-count-for]').forEach((el) => {
+    const g = (el as HTMLElement).dataset.countFor!;
+    el.textContent = String(counts.get(g) ?? 0);
+  });
 }
 
 // ---------- URL <-> état ----------
-function stateToURL(s: ReturnType<typeof readState>) {
+function stateToURL() {
   const p = new URLSearchParams();
-  const c = s.criteria;
+  const c = criteria();
+  if (c.lMax !== DEF.w) p.set('w', String(c.lMax));
+  if (c.pMax !== DEF.d) p.set('d', String(c.pMax));
+  if (c.hMax !== DEF.h) p.set('h', String(c.hMax));
   if (c.q) p.set('q', c.q);
-  if (c.lMin !== B.largeur_cm.min) p.set('lmin', String(c.lMin));
-  if (c.lMax !== B.largeur_cm.max) p.set('lmax', String(c.lMax));
-  if (c.pMin !== B.profondeur_cm.min) p.set('pmin', String(c.pMin));
-  if (c.pMax !== B.profondeur_cm.max) p.set('pmax', String(c.pMax));
-  if (c.hMin !== B.hauteur_cm.min) p.set('hmin', String(c.hMin));
-  if (c.hMax !== B.hauteur_cm.max) p.set('hmax', String(c.hMax));
-  for (const f of FACET_FIELDS) {
-    const arr = (c[f] as string[]) || [];
-    if (arr.length) p.set(f as string, arr.join(','));
-  }
+  if (c.gammes?.length) p.set('g', c.gammes.join(','));
+  if (c.pieces?.length) p.set('pc', c.pieces.join(','));
+  if (c.montages?.length) p.set('mt', c.montages.join(','));
   if (c.inclureIncertains) p.set('inc', '1');
-  if (s.sort !== 'nom') p.set('sort', s.sort);
-  if (s.dir !== 'asc') p.set('dir', s.dir);
-  if (s.view !== 'table') p.set('view', s.view);
+  if (sortKey !== 'largeur_cm') p.set('sort', sortKey);
+  if (sortDir !== 'desc') p.set('dir', sortDir);
+  if (sel.size) p.set('sel', [...sel].join(','));
   const qs = p.toString();
   history.replaceState(null, '', qs ? `?${qs}` : location.pathname);
 }
 
-function applyURLToControls() {
+function applyURL() {
   const p = new URLSearchParams(location.search);
-  const setVal = (id: string, v: string | null) => {
-    const el = $<HTMLInputElement>(`#${id}`);
+  const setRange = (axis: 'w' | 'd' | 'h', key: string) => {
+    const v = p.get(key); const el = $<HTMLInputElement>(`#s-${axis}`);
     if (el && v != null) el.value = v;
   };
-  setVal('q', p.get('q'));
-  setVal('lmin', p.get('lmin'));
-  setVal('lmax', p.get('lmax'));
-  setVal('pmin', p.get('pmin'));
-  setVal('pmax', p.get('pmax'));
-  setVal('hmin', p.get('hmin'));
-  setVal('hmax', p.get('hmax'));
-  for (const f of FACET_FIELDS) {
-    const raw = p.get(f as string);
-    if (!raw) continue;
-    const wanted = new Set(raw.split(','));
-    $$<HTMLInputElement>(`input[name="${FACET_NAME[f as string]}"]`).forEach((el) => {
-      el.checked = wanted.has(el.value);
-    });
-  }
-  const inc = $<HTMLInputElement>('#inc');
-  if (inc) inc.checked = p.get('inc') === '1';
-  const sortSel = $<HTMLSelectElement>('#sort');
-  if (sortSel && p.get('sort')) sortSel.value = p.get('sort') as string;
-  const dirBtn = $<HTMLButtonElement>('#dir');
-  if (dirBtn) {
-    const d = (p.get('dir') as SortDir) || 'asc';
-    dirBtn.dataset.dir = d;
-    dirBtn.textContent = d === 'asc' ? '↑' : '↓';
-  }
-  setView(p.get('view') === 'cards' ? 'cards' : 'table', false);
-}
-
-// ---------- sliders (empêcher min > max) ----------
-function clampSliders() {
-  const pairs: Array<[string, string, string]> = [
-    ['lmin', 'lmax', 'lout'],
-    ['pmin', 'pmax', 'pout'],
-    ['hmin', 'hmax', 'hout'],
-  ];
-  for (const [minId, maxId, outId] of pairs) {
-    const mi = $<HTMLInputElement>(`#${minId}`)!;
-    const ma = $<HTMLInputElement>(`#${maxId}`)!;
-    if (Number(mi.value) > Number(ma.value)) {
-      // celui qui a bougé garde sa valeur ; on rapproche l'autre
-      const tmp = mi.value;
-      mi.value = ma.value;
-      ma.value = tmp;
-    }
-    const out = $(`#${outId}`);
-    if (out) out.textContent = `${mi.value}–${ma.value}`;
-  }
-}
-
-// ---------- rendu ----------
-const results = $('#results')!;
-const compteur = $('#compteur')!;
-
-function badge(p: CaissonProduct): string {
-  return p.certitude === 'incertain'
-    ? '<span class="badge badge-warn" title="Combinaison non vérifiée">non vérifié</span>'
-    : '';
-}
-
-function lienMarque(p: CaissonProduct): string {
-  const l = p.lien;
-  if (!l) {
-    return `<span class="lien-gamme disabled" title="Aucun lien de marque disponible">Lien indisponible</span>`;
-  }
-  const label =
-    l.kind === 'recherche'
-      ? `Rechercher sur ${escapeHtml(p.enseigne)} ↗`
-      : l.kind === 'gamme'
-        ? `Voir la gamme ${escapeHtml(p.gamme)} ↗`
-        : `Voir sur ${escapeHtml(p.enseigne)} ↗`;
-  const title =
-    l.kind === 'recherche'
-      ? ` title="Recherche préremplie « ${escapeHtml(rechercheQuery(p))} » sur ${escapeHtml(p.enseigne)}"`
-      : '';
-  // rel="noopener nofollow" + pas de prefetch/preload : un clic ouvre l'onglet, RIEN au chargement.
-  return `<a class="lien-gamme" href="${escapeHtml(l.href)}" target="_blank" rel="noopener nofollow"${title}>${label}</a>`;
-}
-
-function escapeHtml(s: string): string {
-  return s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c] as string));
-}
-
-function cmpCheckbox(p: CaissonProduct): string {
-  const checked = compareIds.has(p.id) ? 'checked' : '';
-  return `<input type="checkbox" class="cmp" data-id="${p.id}" ${checked} aria-label="Ajouter ${escapeHtml(p.nom_produit)} au comparateur" />`;
-}
-
-function renderTable(list: CaissonProduct[]) {
-  const rows = list
-    .map(
-      (p) => `<tr class="${p.certitude === 'incertain' ? 'row-incertain' : ''}">
-        <td class="c-cmp">${cmpCheckbox(p)}</td>
-        <td class="c-vignette">${caissonThumbSVG(p)}</td>
-        <td class="c-nom">${escapeHtml(p.nom_produit)} ${badge(p)}</td>
-        <td>${escapeHtml(p.gamme)}</td>
-        <td class="num">${p.largeur_cm}</td>
-        <td class="num">${p.profondeur_cm}</td>
-        <td class="num">${p.hauteur_cm}</td>
-        <td>${escapeHtml(p.type_meuble)}</td>
-        <td>${escapeHtml(p.montage)}</td>
-        <td>${escapeHtml(p.materiau || '—')}</td>
-        <td class="c-lien">${lienMarque(p)}</td>
-      </tr>`,
-    )
-    .join('');
-  results.innerHTML = `<div class="table-scroll"><table class="dense" aria-label="Résultats (tableau)">
-    <thead><tr>
-      <th scope="col"><span class="sr-only">Comparer</span></th>
-      <th scope="col"><span class="sr-only">Schéma</span></th>
-      <th scope="col">Nom</th><th scope="col">Gamme</th>
-      <th scope="col" class="num">L</th><th scope="col" class="num">P</th><th scope="col" class="num">H</th>
-      <th scope="col">Type</th><th scope="col">Montage</th><th scope="col">Matériau</th><th scope="col">Lien</th>
-    </tr></thead><tbody>${rows || emptyRow(11)}</tbody></table></div>`;
-}
-
-function emptyRow(cols: number) {
-  return `<tr><td colspan="${cols}" class="empty">Aucun résultat pour ces contraintes. Élargissez une plage ou réinitialisez.</td></tr>`;
-}
-
-function renderCards(list: CaissonProduct[]) {
-  if (list.length === 0) {
-    results.innerHTML = `<p class="empty">Aucun résultat pour ces contraintes. Élargissez une plage ou réinitialisez.</p>`;
-    return;
-  }
-  const cards = list
-    .map(
-      (p) => `<article class="card ${p.certitude === 'incertain' ? 'row-incertain' : ''}">
-        <header><h3>${escapeHtml(p.nom_produit)} ${badge(p)}</h3><label class="cmp-wrap">${cmpCheckbox(p)}<span class="sr-only">Comparer</span></label></header>
-        <figure class="schema-wrap">${caissonSVG(p, SCALE)}<figcaption class="sr-only">Schéma à l'échelle du caisson ${escapeHtml(p.nom_produit)}, ${p.largeur_cm}×${p.profondeur_cm}×${p.hauteur_cm} cm.</figcaption></figure>
-        <dl class="cotes">
-          <div><dt>L</dt><dd>${p.largeur_cm} cm</dd></div>
-          <div><dt>P</dt><dd>${p.profondeur_cm} cm</dd></div>
-          <div><dt>H</dt><dd>${p.hauteur_cm} cm</dd></div>
-        </dl>
-        <p class="meta">${escapeHtml(p.gamme)} · ${escapeHtml(p.type_meuble)} · ${escapeHtml(p.montage)} · ${escapeHtml(p.materiau || '—')}</p>
-        <p>${lienMarque(p)}</p>
-      </article>`,
-    )
-    .join('');
-  results.innerHTML = `<div class="cards-grid">${cards}</div>`;
-}
-
-let currentView = 'table';
-function setView(view: string, rerender = true) {
-  currentView = view;
-  const t = $<HTMLButtonElement>('#view-table')!;
-  const c = $<HTMLButtonElement>('#view-cards')!;
-  t.setAttribute('aria-pressed', String(view === 'table'));
-  c.setAttribute('aria-pressed', String(view === 'cards'));
-  if (rerender) render();
-}
-
-// ---------- chips filtres actifs ----------
-function renderChips(s: ReturnType<typeof readState>) {
-  const chips: Array<{ label: string; clear: () => void }> = [];
-  const c = s.criteria;
-  const dim = (name: string, min: number, max: number, dmin: number, dmax: number, ids: [string, string]) => {
-    if (min !== dmin || max !== dmax) {
-      chips.push({
-        label: `${name} ${min}–${max} cm`,
-        clear: () => {
-          ($<HTMLInputElement>(`#${ids[0]}`)!).value = String(dmin);
-          ($<HTMLInputElement>(`#${ids[1]}`)!).value = String(dmax);
-        },
-      });
-    }
+  setRange('w', 'w'); setRange('d', 'd'); setRange('h', 'h');
+  const q = p.get('q'); if (q) ($<HTMLInputElement>('#q')!).value = q;
+  const press = (family: string, csv: string | null) => {
+    if (!csv) return; const want = new Set(csv.split(','));
+    $$(`.chip[data-family="${family}"]`).forEach((b) => b.setAttribute('aria-pressed', String(want.has(b.dataset.value!))));
   };
-  dim('Largeur', c.lMin!, c.lMax!, B.largeur_cm.min, B.largeur_cm.max, ['lmin', 'lmax']);
-  dim('Profondeur', c.pMin!, c.pMax!, B.profondeur_cm.min, B.profondeur_cm.max, ['pmin', 'pmax']);
-  dim('Hauteur', c.hMin!, c.hMax!, B.hauteur_cm.min, B.hauteur_cm.max, ['hmin', 'hmax']);
-  if (c.q) chips.push({ label: `« ${c.q} »`, clear: () => (($<HTMLInputElement>('#q')!).value = '') });
-  for (const f of FACET_FIELDS) {
-    for (const v of (c[f] as string[]) || []) {
-      chips.push({
-        label: v,
-        clear: () => {
-          const el = $$<HTMLInputElement>(`input[name="${FACET_NAME[f as string]}"]`).find((x) => x.value === v);
-          if (el) el.checked = false;
-        },
-      });
-    }
-  }
-  if (c.inclureIncertains) chips.push({ label: 'non vérifiées incluses', clear: () => (($<HTMLInputElement>('#inc')!).checked = false) });
+  press('gammes', p.get('g')); press('pieces', p.get('pc')); press('montages', p.get('mt'));
+  if (p.get('inc') === '1') $('#chip-inc')!.setAttribute('aria-pressed', 'true');
+  if (p.get('sort')) sortKey = p.get('sort') as SortKey;
+  if (p.get('dir')) sortDir = p.get('dir') as SortDir;
+  const s = p.get('sel'); if (s) s.split(',').forEach((id) => sel.add(id));
+  syncSortChips();
+}
 
-  const box = $('#chips')!;
-  box.innerHTML = '';
-  chips.forEach((ch) => {
-    const b = document.createElement('button');
-    b.type = 'button';
-    b.className = 'chip';
-    b.innerHTML = `${escapeHtml(ch.label)} <span aria-hidden="true">✕</span>`;
-    b.setAttribute('aria-label', `Retirer le filtre ${ch.label}`);
-    b.addEventListener('click', () => {
-      ch.clear();
-      update();
-    });
-    box.appendChild(b);
+function syncSortChips() {
+  $$('#sort-chips .chip').forEach((b) => {
+    const active = b.dataset.sort === sortKey;
+    b.setAttribute('aria-pressed', String(active));
+    const base = b.dataset.base || (b.dataset.base = b.textContent!.replace(/[ ↑↓]+$/, ''));
+    b.textContent = active ? `${base} ${sortDir === 'asc' ? '↑' : '↓'}` : base;
   });
 }
 
-// ---------- comparateur ----------
-function refreshTray() {
-  const tray = $('#comparateur-tray')!;
-  const count = $('#tray-count')!;
-  const open = $<HTMLButtonElement>('#open-compare')!;
-  const n = compareIds.size;
-  tray.hidden = n === 0;
-  count.textContent = `${n} sélectionné${n > 1 ? 's' : ''} (2 à ${MAX_COMPARE})`;
-  open.disabled = n < 2;
-}
-
-function toggleCompare(id: string, on: boolean) {
-  if (on) {
-    if (compareIds.size >= MAX_COMPARE) return false;
-    compareIds.add(id);
-  } else {
-    compareIds.delete(id);
-  }
-  refreshTray();
-  return true;
-}
-
-function openCompare() {
-  const items = ALL.filter((p) => compareIds.has(p.id));
-  if (items.length < 2) return;
-  const attrs: Array<[string, (p: CaissonProduct) => string]> = [
-    ['Largeur', (p) => `${p.largeur_cm} cm`],
-    ['Profondeur', (p) => `${p.profondeur_cm} cm`],
-    ['Hauteur', (p) => `${p.hauteur_cm} cm`],
-    ['Gamme', (p) => p.gamme],
-    ['Type', (p) => p.type_meuble],
-    ['Montage', (p) => p.montage],
-    ['Matériau', (p) => p.materiau || '—'],
-    ['Certitude', (p) => (p.certitude === 'incertain' ? 'non vérifié' : 'vérifié')],
-  ];
-  const head = `<tr><th>Attribut</th>${items.map((p) => `<th>${escapeHtml(p.nom_produit)}</th>`).join('')}</tr>`;
-  const schemaRow = `<tr class="row-schema"><th scope="row">Schéma (même échelle)</th>${items
-    .map((p) => `<td class="c-schema">${caissonSVG(p, SCALE)}</td>`)
-    .join('')}</tr>`;
-  const body = attrs
-    .map(([label, fn]) => {
-      const vals = items.map(fn);
-      const diff = new Set(vals).size > 1; // écart = valeurs différentes
-      const cells = vals
-        .map((v) => `<td class="${diff ? 'diff' : ''}">${escapeHtml(v)}</td>`)
-        .join('');
-      return `<tr class="${diff ? 'row-diff' : ''}"><th scope="row">${label}</th>${cells}</tr>`;
-    })
-    .join('');
-  $('#compare-body')!.innerHTML =
-    `<div class="table-scroll"><table class="compare"><thead>${head}</thead><tbody>${schemaRow}${body}</tbody></table></div>
-     <p class="hint">Les lignes surlignées marquent un <strong>écart</strong> entre les produits comparés.</p>`;
-  const dlg = $<HTMLDialogElement>('#compare-dialog')!;
-  if (typeof dlg.showModal === 'function') dlg.showModal();
-  else dlg.setAttribute('open', '');
-}
-
-// ---------- boucle principale ----------
-function render() {
-  const s = readState();
-  const filtered = filterProducts(ALL, s.criteria);
-  const sorted = sortProducts(filtered, s.sort, s.dir);
-  if (currentView === 'cards') renderCards(sorted);
-  else renderTable(sorted);
-  const n = sorted.length;
-  compteur.textContent = `${n} résultat${n > 1 ? 's' : ''}${s.criteria.inclureIncertains ? ' (dont non vérifiées)' : ''}`;
-  renderChips(s);
-  // rebrancher les cases comparateur (le HTML vient d'être remplacé)
-  $$<HTMLInputElement>('input.cmp').forEach((el) => {
-    el.addEventListener('change', () => {
-      const ok = toggleCompare(el.dataset.id!, el.checked);
-      if (!ok) el.checked = false;
-    });
-  });
-}
-
+// ---------- boucle ----------
 function update() {
-  clampSliders();
-  render();
-  stateToURL(readState());
+  const c = criteria();
+  const maxW = c.lMax!, maxD = c.pMax!, maxH = c.hMax!;
+  $$('.slider').forEach((sl) => {
+    const axis = sl.dataset.axis as 'w' | 'd' | 'h';
+    const v = $<HTMLElement>(`#v-${axis}`); if (v) v.textContent = `${rangeVal(axis)} cm`;
+  });
+  const filtered = filterProducts(ALL, c);
+  const sorted = sortProducts(filtered, sortKey, sortDir);
+  $('#cnt-fit')!.textContent = String(sorted.length);
+  renderMur(sorted, maxW, maxD, maxH);
+  renderCards(sorted, maxW, maxD, maxH);
+  updateGammeCounts();
+  stateToURL();
 }
 
 // ---------- init ----------
 function init() {
-  applyURLToControls();
-  // Écouteurs
-  $('#filtres')!.addEventListener('input', update);
-  $('#filtres')!.addEventListener('change', update);
-  $('#sort')!.addEventListener('change', update);
-  $('#dir')!.addEventListener('click', () => {
-    const btn = $<HTMLButtonElement>('#dir')!;
-    const d = btn.dataset.dir === 'desc' ? 'asc' : 'desc';
-    btn.dataset.dir = d;
-    btn.textContent = d === 'asc' ? '↑' : '↓';
-    update();
-  });
-  $('#view-table')!.addEventListener('click', () => {
-    setView('table');
-    stateToURL(readState());
-  });
-  $('#view-cards')!.addEventListener('click', () => {
-    setView('cards');
-    stateToURL(readState());
-  });
-  $('#reset')!.addEventListener('click', () => {
-    const f = $<HTMLFormElement>('#filtres')!;
-    f.reset();
-    // remettre les sliders aux bornes
-    ($<HTMLInputElement>('#lmin')!).value = String(B.largeur_cm.min);
-    ($<HTMLInputElement>('#lmax')!).value = String(B.largeur_cm.max);
-    ($<HTMLInputElement>('#pmin')!).value = String(B.profondeur_cm.min);
-    ($<HTMLInputElement>('#pmax')!).value = String(B.profondeur_cm.max);
-    ($<HTMLInputElement>('#hmin')!).value = String(B.hauteur_cm.min);
-    ($<HTMLInputElement>('#hmax')!).value = String(B.hauteur_cm.max);
-    update();
-  });
-  $('#open-compare')!.addEventListener('click', openCompare);
-  $('#clear-compare')!.addEventListener('click', () => {
-    compareIds.clear();
-    $$<HTMLInputElement>('input.cmp').forEach((el) => (el.checked = false));
-    refreshTray();
-  });
-  $('#close-compare')!.addEventListener('click', () => {
-    const dlg = $<HTMLDialogElement>('#compare-dialog')!;
-    if (typeof dlg.close === 'function') dlg.close();
-    else dlg.removeAttribute('open');
+  // libellés d'affichage des chips (données codées → texte).
+  $$('.chip .chip-txt[data-label]').forEach((el) => {
+    const chip = el.closest('.chip') as HTMLElement;
+    const fam = chip?.dataset.family; const val = el.dataset.label!;
+    el.textContent = fam === 'montages' ? montageLabel(val) : fam === 'pieces' ? pieceLabel(val) : val;
   });
 
-  refreshTray();
+  applyURL();
+
+  // chips filtres (switch)
+  $$('.chip[data-family]').forEach((b) => b.addEventListener('click', () => {
+    b.setAttribute('aria-pressed', String(b.getAttribute('aria-pressed') !== 'true'));
+    update();
+  }));
+  const inc = $('#chip-inc');
+  if (inc) inc.addEventListener('click', () => {
+    inc.setAttribute('aria-pressed', String(inc.getAttribute('aria-pressed') !== 'true'));
+    update();
+  });
+
+  // sliders + recherche
+  $$('input[type=range]').forEach((el) => el.addEventListener('input', update));
+  $('#q')!.addEventListener('input', update);
+
+  // tri
+  $$('#sort-chips .chip').forEach((b) => b.addEventListener('click', () => {
+    const k = b.dataset.sort as SortKey;
+    if (k === sortKey) sortDir = sortDir === 'asc' ? 'desc' : 'asc';
+    else { sortKey = k; sortDir = 'desc'; }
+    syncSortChips();
+    update();
+  }));
+
+  // reset
+  $('#reset')!.addEventListener('click', () => {
+    ($<HTMLInputElement>('#s-w')!).value = String(DEF.w);
+    ($<HTMLInputElement>('#s-d')!).value = String(DEF.d);
+    ($<HTMLInputElement>('#s-h')!).value = String(DEF.h);
+    ($<HTMLInputElement>('#q')!).value = '';
+    $$('.chip[data-family]').forEach((b) => b.setAttribute('aria-pressed', 'false'));
+    $('#chip-inc')?.setAttribute('aria-pressed', 'false');
+    sel.clear();
+    sortKey = 'largeur_cm'; sortDir = 'desc'; syncSortChips();
+    update();
+  });
+
+  syncSortChips();
   update();
 }
 
