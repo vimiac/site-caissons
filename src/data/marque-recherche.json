@@ -20,6 +20,10 @@
     "HAY": {
       "recherche": "https://www.hay.com/search?q={q}",
       "site": "https://www.hay.com/"
+    },
+    "Leroy Merlin": {
+      "recherche": "https://www.leroymerlin.fr/produits/recherche?q={q}",
+      "site": "https://www.leroymerlin.fr/"
     }
   }
 }

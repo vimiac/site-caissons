@@ -3,7 +3,7 @@
 // Exécuté dans le frontmatter Astro (build statique). Aucune donnée inventée.
 
 import rawIkea from '../data/ikea.json';
-import rawAutres from '../data/marques-2026-09-14.json'; // Castorama Atomia + Muuto Stacked + HAY Colour Cabinet
+import rawAutres from '../data/marques-2026-09-14.json'; // Castorama Atomia, Muuto Stacked, HAY Colour Cabinet, Leroy Merlin DELINIA
 import gammeUrls from '../data/gamme-urls.json';
 import marqueRecherche from '../data/marque-recherche.json';
 import { normalizeProduct, validateProduct, parseDimensionTriplet } from './dimensions';
