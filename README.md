@@ -73,7 +73,7 @@ vérifiée), et les 3 sliders L/P/H filtrent bien.
 | 1 | 3 doubles-sliders L / P / H, pas de 1 cm, **bornes calculées depuis les données** | `src/pages/index.astro` (bornes via `buildDataset`), `src/scripts/app.ts` |
 | 2 | Filtres gamme / type / pièce / montage / matériau + **recherche texte** (nom, gamme) | `src/scripts/app.ts`, `src/lib/filter.ts` |
 | 3 | Tri par chaque dimension et par nom | `src/lib/filter.ts` (`sortProducts`) |
-| 4 | **Tableau dense par défaut** + vue cartes, **lien sortant** vers la page de gamme par résultat | `src/scripts/app.ts` |
+| 4 | **Tableau dense par défaut** (avec vignette) + vue cartes, **lien sortant** par résultat (recherche préremplie chez la marque) | `src/scripts/app.ts`, `src/lib/liens.ts` |
 | 5 | **Comparateur 2 à 4** côte à côte, **surlignage des écarts** | `src/scripts/app.ts` (`openCompare`) |
 | 6 | **État des filtres dans l'URL** (querystring), restauré au chargement | `src/scripts/app.ts` (`stateToURL` / `applyURLToControls`) |
 | 7 | **Responsive** : tableau → cartes empilées, sliders au doigt | `src/styles/global.css` |
@@ -152,17 +152,27 @@ est rebuild → redéployé). Deux cas :
   (`{ "gamme", "combinaisons": ["L×P×H", …], "raison", "source" }`). Elles sont dépliées au build en
   héritant des métadonnées de la gamme et marquées `incertain`.
 
-### Liens vers les pages de gamme — `src/data/gamme-urls.json`
+### Lien sortant par caisson — recherche préremplie (`src/data/marque-recherche.json`)
 
-`url_produit` vaut le placeholder `"gamme:<GAMME>"`. Le build le résout via `gamme-urls.json` :
+Chaque résultat porte **un lien vers la marque**, résolu au build selon cette priorité :
 
-- Valeur `null` (défaut) → **le lien est laissé DÉSACTIVÉ** dans l'UI (« Lien gamme indisponible »).
-- Renseigner l'**URL publique vérifiée** de la page de gamme → le lien s'active
-  (« Voir la gamme … ↗ », `rel="noopener nofollow"`).
+1. **Recherche préremplie** (par défaut) — un **modèle d'URL de recherche par marque** est stocké en
+   données (`src/data/marque-recherche.json`, jamais en dur dans le code) : `{ "IKEA": { "recherche":
+   "https://www.ikea.com/fr/fr/search/?q={q}", "site": "…" } }`. Le build substitue `{q}` = **gamme +
+   cotes** (`L×P×H`, le « × » écrit « x »), **encodé proprement** (accents, espaces). Ex. `BILLY
+   40x28x106` → `…/search/?q=BILLY%2040x28x106`. Le visiteur arrive chez la marque, **sa recherche
+   déjà faite**. Libellé « Rechercher sur … ↗ ».
+2. **Page de gamme explicite** — si `src/data/gamme-urls.json` fournit une URL publique vérifiée pour
+   la gamme, elle est utilisée (« Voir la gamme … ↗ »). *Ce n'est plus nécessaire* : la recherche
+   préremplie couvre le besoin, ce qui **supprime les URLs de gamme restées à `null`**.
+3. **Site générique** de la marque (`site`) — repli si pas de modèle de recherche.
+4. **Rien** — si aucun des trois, le lien est laissé **DÉSACTIVÉ** (« Lien indisponible »),
+   jamais de lien mort.
 
-> **Choix assumé (MVP)** : les 7 URLs de pages de gamme sont livrées à `null` — elles ne sont
-> **pas inventées** (consigne : une URL fabriquée de mémoire est un défaut). À compléter par Arnaud
-> avec les URLs publiques réelles, sans moissonnage.
+> **On n'invente aucune URL de produit.** Un modèle de recherche se **déduit de la forme publique du
+> moteur** de la marque (ce n'est pas du moissonnage). Le lien est un `<a target="_blank"
+> rel="noopener nofollow">` : il n'ouvre l'onglet **qu'au clic** — aucune requête réseau, aucun
+> `prefetch`/`preload`, au chargement de la page.
 
 ---
 

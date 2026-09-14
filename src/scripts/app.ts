@@ -2,6 +2,7 @@
 // vue tableau/cartes, comparateur 2-4 avec surlignage des écarts. Aucune requête réseau.
 import { filterProducts, sortProducts } from '../lib/filter';
 import { caissonSVG, caissonThumbSVG, computeSchemaScale } from '../lib/schema';
+import { rechercheQuery } from '../lib/liens';
 import type {
   CaissonProduct,
   DimensionBounds,
@@ -164,11 +165,23 @@ function badge(p: CaissonProduct): string {
     : '';
 }
 
-function lienGamme(p: CaissonProduct): string {
-  if (p.url_gamme_resolue) {
-    return `<a class="lien-gamme" href="${p.url_gamme_resolue}" target="_blank" rel="noopener nofollow">Voir la gamme ${escapeHtml(p.gamme)} ↗</a>`;
+function lienMarque(p: CaissonProduct): string {
+  const l = p.lien;
+  if (!l) {
+    return `<span class="lien-gamme disabled" title="Aucun lien de marque disponible">Lien indisponible</span>`;
   }
-  return `<span class="lien-gamme disabled" title="URL de la page de gamme non renseignée (voir README)">Lien gamme indisponible</span>`;
+  const label =
+    l.kind === 'recherche'
+      ? `Rechercher sur ${escapeHtml(p.enseigne)} ↗`
+      : l.kind === 'gamme'
+        ? `Voir la gamme ${escapeHtml(p.gamme)} ↗`
+        : `Voir sur ${escapeHtml(p.enseigne)} ↗`;
+  const title =
+    l.kind === 'recherche'
+      ? ` title="Recherche préremplie « ${escapeHtml(rechercheQuery(p))} » sur ${escapeHtml(p.enseigne)}"`
+      : '';
+  // rel="noopener nofollow" + pas de prefetch/preload : un clic ouvre l'onglet, RIEN au chargement.
+  return `<a class="lien-gamme" href="${escapeHtml(l.href)}" target="_blank" rel="noopener nofollow"${title}>${label}</a>`;
 }
 
 function escapeHtml(s: string): string {
@@ -194,7 +207,7 @@ function renderTable(list: CaissonProduct[]) {
         <td>${escapeHtml(p.type_meuble)}</td>
         <td>${escapeHtml(p.montage)}</td>
         <td>${escapeHtml(p.materiau || '—')}</td>
-        <td class="c-lien">${lienGamme(p)}</td>
+        <td class="c-lien">${lienMarque(p)}</td>
       </tr>`,
     )
     .join('');
@@ -228,7 +241,7 @@ function renderCards(list: CaissonProduct[]) {
           <div><dt>H</dt><dd>${p.hauteur_cm} cm</dd></div>
         </dl>
         <p class="meta">${escapeHtml(p.gamme)} · ${escapeHtml(p.type_meuble)} · ${escapeHtml(p.montage)} · ${escapeHtml(p.materiau || '—')}</p>
-        <p>${lienGamme(p)}</p>
+        <p>${lienMarque(p)}</p>
       </article>`,
     )
     .join('');
