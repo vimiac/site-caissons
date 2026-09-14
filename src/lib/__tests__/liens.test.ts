@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { rechercheQuery, rechercheURL, resolveLien, type MarqueLiens } from '../liens';
 import type { CaissonProduct } from '../types';
+import dataJson from '../../data/marque-recherche.json';
 
 function make(over: Partial<CaissonProduct>): CaissonProduct {
   return {
@@ -68,5 +69,52 @@ describe('priorité du lien final', () => {
 
   it('rien de tout ça → null (pas de lien mort)', () => {
     expect(resolveLien(make({ enseigne: 'RIEN' }), {}, null)).toBeNull();
+  });
+
+  it('recherche=null (marque sans moteur adressable) → repli site', () => {
+    const l = resolveLien(make({ enseigne: 'HAY' }), { HAY: { recherche: null, site: 'https://www.hay.com/' } }, null);
+    expect(l).toEqual({ href: 'https://www.hay.com/', kind: 'site' });
+  });
+});
+
+// Garde-fou sur les VRAIES données : params constatés le 2026-09-14 (Arnaud a testé les liens).
+// Fige la correction : Castorama ?term=, Leroy Merlin /search?q=, HAY sans recherche → site.
+describe('marque-recherche.json (données réelles)', () => {
+  const DATA = (dataJson as any).marques as Record<string, MarqueLiens>;
+
+  it('les 5 marques produisent chacune un lien valide (jamais mort)', () => {
+    for (const enseigne of ['IKEA', 'Castorama', 'Muuto', 'HAY', 'Leroy Merlin']) {
+      const l = resolveLien(make({ enseigne, gamme: 'TEST', largeur_cm: 100, profondeur_cm: 45, hauteur_cm: 225 }), DATA, null);
+      expect(l, `lien manquant pour ${enseigne}`).not.toBeNull();
+      expect(() => new URL(l!.href)).not.toThrow();
+      expect(l!.href).not.toContain('{q}');
+    }
+  });
+
+  it('Castorama utilise ?term= (pas ?q=)', () => {
+    const l = resolveLien(make({ enseigne: 'Castorama', gamme: 'Atomia', largeur_cm: 100, profondeur_cm: 45, hauteur_cm: 225 }), DATA, null);
+    expect(l!.kind).toBe('recherche');
+    expect(l!.href).toBe('https://www.castorama.fr/search?term=Atomia%20100x45x225');
+  });
+
+  it('Leroy Merlin utilise /search?q= (pas /produits/recherche)', () => {
+    const l = resolveLien(make({ enseigne: 'Leroy Merlin', gamme: 'DELINIA', largeur_cm: 120, profondeur_cm: 58, hauteur_cm: 77 }), DATA, null);
+    expect(l!.kind).toBe('recherche');
+    expect(l!.href).toBe('https://www.leroymerlin.fr/search?q=DELINIA%20120x58x77');
+  });
+
+  it('HAY bascule sur le site (aucune recherche adressable par URL)', () => {
+    const l = resolveLien(make({ enseigne: 'HAY', gamme: 'Colour Cabinet', largeur_cm: 120, profondeur_cm: 39, hauteur_cm: 51 }), DATA, null);
+    expect(l!.kind).toBe('site');
+    expect(l!.href).toBe('https://www.hay.com/');
+  });
+
+  it('IKEA et Muuto restent en ?q= (inchangés, testés OK par Arnaud)', () => {
+    const ikea = resolveLien(make({ enseigne: 'IKEA', gamme: 'BILLY', largeur_cm: 40, profondeur_cm: 28, hauteur_cm: 106 }), DATA, null);
+    expect(ikea!.href).toBe('https://www.ikea.com/fr/fr/search/?q=BILLY%2040x28x106');
+    const muuto = resolveLien(make({ enseigne: 'Muuto', gamme: 'Stacked', largeur_cm: 21.8, profondeur_cm: 35, hauteur_cm: 43.6 }), DATA, null);
+    expect(muuto!.kind).toBe('recherche');
+    expect(muuto!.href).toContain('muuto.com');
+    expect(muuto!.href).toContain('?q=');
   });
 });
