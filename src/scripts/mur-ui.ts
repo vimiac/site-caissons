@@ -3,6 +3,7 @@
 // avec un avertissement CONTEXTUEL porté par chaque combinaison (jamais un pied de page).
 // Aucune image, aucune requête réseau.
 import { composerMur, toPiece, type ParamsMur, type Composition } from '../lib/mur';
+import { liensDistincts } from '../lib/liens-mur';
 import type { CaissonProduct } from '../lib/types';
 
 const dataEl = document.getElementById('dataset-json');
@@ -11,10 +12,36 @@ const out = document.getElementById('mur-results');
 if (dataEl && form && out) {
   const payload = JSON.parse(dataEl.textContent || '{}') as { produits: CaissonProduct[] };
   const PIECES = payload.produits.filter((p) => p.certitude === 'confirmé').map(toPiece);
+  // Index id → produit : on réutilise le lien DÉJÀ résolu au build par liens.ts / marque-recherche.json
+  // (mêmes paramètres constatés « verifie_2026_09_14 »). Aucune duplication de logique de lien.
+  const byId = new Map(payload.produits.map((p) => [p.id, p]));
 
   const val = (id: string) => Number((document.getElementById(id) as HTMLInputElement)?.value);
   const esc = (s: string) =>
     s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c] as string));
+
+  // Lien fournisseur d'un modèle, exactement comme le tableau de résultats : chaîne de priorité
+  // recherche préremplie > gamme > site > rien. rel="noopener nofollow", aucune requête au chargement.
+  function lienModele(p: CaissonProduct): string {
+    const l = p.lien;
+    if (!l) return `<span class="lien-gamme disabled">Lien indisponible</span>`;
+    const label =
+      l.kind === 'recherche'
+        ? `Rechercher sur ${esc(p.enseigne)} ↗`
+        : l.kind === 'gamme'
+          ? `Voir la gamme ${esc(p.gamme)} ↗`
+          : `Voir sur ${esc(p.enseigne)} ↗`;
+    return `<a class="lien-gamme" href="${esc(l.href)}" target="_blank" rel="noopener nofollow">${label}</a>`;
+  }
+
+  // Un lien par caisson DISTINCT de la proposition (dédoublonnage pur dans liens-mur.ts).
+  function liensProposition(c: Composition): string {
+    const items = liensDistincts(c, byId).map(
+      (m) => `<li><span class="mur-lien-nom">${esc(m.nom)}</span> ${lienModele(byId.get(m.id)!)}</li>`,
+    );
+    if (items.length === 0) return '';
+    return `<div class="mur-liens"><span class="mur-liens-tete">Chez la marque :</span><ul>${items.join('')}</ul></div>`;
+  }
 
   // Une barre CSS (pas d'image) qui montre le taux de remplissage horizontal d'une rangée.
   function barre(largeurMur: number, rempli: number): string {
@@ -57,6 +84,7 @@ if (dataEl && form && out) {
             <span class="mur-stats">${c.rangees.length} rangée(s) · ${c.nbMeubles} meuble(s) · hauteur ${c.hauteurTotale} cm · résidu horizontal ${c.residuHorizontalTotal} cm</span>
           </header>
           ${rangs}
+          ${liensProposition(c)}
           ${badge(c)}
         </article>`;
       })
